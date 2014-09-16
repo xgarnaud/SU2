@@ -448,6 +448,12 @@ inline void CSolver::Inviscid_DeltaForces(CGeometry *geometry, CSolver **solver_
 
 inline void CSolver::Viscous_DeltaForces(CGeometry *geometry, CConfig *config) { }
 
+inline void CSolver::Mixing_Process(CGeometry *geometry, CConfig *config) { }
+
+inline double CSolver::MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal) { }
+
+inline double CSolver::MixedOut_Root_Function (double pressure, double *val_Averaged_Flux, double *val_normal) { }
+
 inline void CSolver::Wave_Strength(CGeometry *geometry, CConfig *config) { }
 
 inline void CSolver::ExplicitRK_Iteration(CGeometry *geometry, CSolver **solver_container, 

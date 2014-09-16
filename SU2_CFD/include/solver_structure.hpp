@@ -878,7 +878,7 @@ public:
 	 * \param[in] config - Definition of the particular problem.
 	 */
 	virtual void Inviscid_DeltaForces(CGeometry *geometry, CSolver **solver_container, CConfig *config);
-    
+
 	/*!
 	 * \brief A virtual member.
 	 * \param[in] geometry - Geometrical definition of the problem.
@@ -892,7 +892,28 @@ public:
 	 * \param[in] config - Definition of the particular problem.
 	 */
 	virtual void Viscous_DeltaForces(CGeometry *geometry, CConfig *config);
-    
+
+	/*!
+	 * \brief A virtual member.
+	 * \param[in] geometry - Geometrical definition of the problem.
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	virtual void Mixing_Process(CGeometry *geometry, CConfig *config);
+
+	/*!
+	 * \brief A virtual member.
+	 * \param[in] geometry - Geometrical definition of the problem.
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	virtual double MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal);
+
+	/*!
+	 * \brief A virtual member.
+	 * \param[in] geometry - Geometrical definition of the problem.
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	virtual double MixedOut_Root_Function (double pressure, double *val_Averaged_Flux, double *val_normal);
+
 	/*!
 	 * \brief A virtual member.
 	 * \param[in] geometry - Geometrical definition of the problem.
@@ -2010,7 +2031,20 @@ protected:
 	FanFace_Pressure_Total,	/*!< \brief Fan face pressure for each boundary. */
 	FanFace_Mach_Total,	/*!< \brief Fan face mach number for each boundary. */
 	InverseDesign;	/*!< \brief Inverse design functional for each boundary. */
-	
+
+//  double
+//  *TotalMassFlux,  /*!< \brief Mass flux. */
+//  *TotalMomtXFlux,  /*!< \brief Total axial momemtum flux. */
+//  *TotalMomtYFlux,  /*!< \brief Total tangential momemtum flux. */
+//  *TotalMomtZFlux,  /*!< \brief Total radial momemtum flux. */
+//  *TotalEnergyFlux,  /*!< \brief Total energy flux. */
+//  **AveragedFlux,  /*!< \brief Averaged flux. */
+//  *Enthalpy_Mix, /*!< \brief Mixing enthalpy for each monitoring surface. */
+//  *Temperature_Mix, /*!< \brief Mixing temperature for each monitoring surface. */
+//  *Pressure_Mix,  /*!< \brief Mixing pressure for each boundary. */
+//  **Velocity_Mix, /*!< \brief Mixing velocity for each monitoring surface. */
+//  *Surface_Pressure_Mix; /*!< \brief Mixing pressure for each monitoring surface. */
+
   double
   AllBound_CDrag_Inv,	/*!< \brief Total drag coefficient (inviscid contribution) for all the boundaries. */
 	AllBound_CLift_Inv,			/*!< \brief Total lift coefficient (inviscid contribution) for all the boundaries. */
@@ -2609,6 +2643,27 @@ public:
 	 * \param[in] config - Definition of the particular problem.
 	 */
 	void Inviscid_Forces(CGeometry *geometry, CConfig *config);
+
+	/*!
+	 * \brief Compute the pressure forces and all the adimensional coefficients.
+	 * \param[in] geometry - Geometrical definition of the problem.
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	void Mixing_Process(CGeometry *geometry, CConfig *config);
+
+	/*!
+	 * \brief Compute the pressure forces and all the adimensional coefficients.
+	 * \param[in] geometry - Geometrical definition of the problem.
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	double MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal);
+
+	/*!
+	 * \brief Compute the pressure forces and all the adimensional coefficients.
+	 * \param[in] geometry - Geometrical definition of the problem.
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	double MixedOut_Root_Function (double pressure, double *val_Averaged_Flux, double *val_normal);
 
 	/*!
 	 * \brief Provide the non dimensional lift coefficient (inviscid contribution).
@@ -6254,7 +6309,7 @@ public:
 	 * \param[in] config - Definition of the particular problem.
 	 */
 	void Inviscid_Forces(CGeometry *geometry, CConfig *config);
-  
+
 	/*!
 	 * \brief Provide the non dimensional lift coefficient (inviscid contribution).
 	 * \param val_marker Surface where the coefficient is going to be computed.
