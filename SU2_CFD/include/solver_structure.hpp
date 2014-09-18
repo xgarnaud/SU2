@@ -905,14 +905,14 @@ public:
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	virtual double MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal);
+	virtual void MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal, double &pressure_mix, double &density_mix);
 
 	/*!
 	 * \brief A virtual member.
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	virtual double MixedOut_Root_Function (double pressure, double *val_Averaged_Flux, double *val_normal);
+	virtual void MixedOut_Root_Function (double pressure, double *val_Averaged_Flux, double *val_normal, double &valfunc, double &density);
 
 	/*!
 	 * \brief A virtual member.
@@ -2032,18 +2032,17 @@ protected:
 	FanFace_Mach_Total,	/*!< \brief Fan face mach number for each boundary. */
 	InverseDesign;	/*!< \brief Inverse design functional for each boundary. */
 
-//  double
-//  *TotalMassFlux,  /*!< \brief Mass flux. */
-//  *TotalMomtXFlux,  /*!< \brief Total axial momemtum flux. */
-//  *TotalMomtYFlux,  /*!< \brief Total tangential momemtum flux. */
-//  *TotalMomtZFlux,  /*!< \brief Total radial momemtum flux. */
-//  *TotalEnergyFlux,  /*!< \brief Total energy flux. */
-//  **AveragedFlux,  /*!< \brief Averaged flux. */
-//  *Enthalpy_Mix, /*!< \brief Mixing enthalpy for each monitoring surface. */
-//  *Temperature_Mix, /*!< \brief Mixing temperature for each monitoring surface. */
-//  *Pressure_Mix,  /*!< \brief Mixing pressure for each boundary. */
-//  **Velocity_Mix, /*!< \brief Mixing velocity for each monitoring surface. */
-//  *Surface_Pressure_Mix; /*!< \brief Mixing pressure for each monitoring surface. */
+  double
+    *TotalMassFlux,  /*!< \brief Mass flux. */
+    *TotalMomtXFlux,  /*!< \brief Total axial momemtum flux. */
+    *TotalMomtYFlux,  /*!< \brief Total tangential momemtum flux. */
+    *TotalMomtZFlux,  /*!< \brief Total radial momemtum flux. */
+    *TotalEnergyFlux,  /*!< \brief Total energy flux. */
+    *AveragedEnthalpy, /*!< \brief Mixing enthalpy for each monitoring surface. */
+    *AveragedPressure,  /*!< \brief Mixing pressure for each boundary. */
+    *AveragedDensity, /*!< \brief Mixing temperature for each monitoring surface. */
+    **AveragedFlux,  /*!< \brief Averaged flux. */
+    **AveragedVelocity; /*!< \brief Mixing velocity for each monitoring surface. */
 
   double
   AllBound_CDrag_Inv,	/*!< \brief Total drag coefficient (inviscid contribution) for all the boundaries. */
@@ -2656,14 +2655,14 @@ public:
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	double MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal);
+	void MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal, double &pressure_mix, double &density_mix);
 
 	/*!
 	 * \brief Compute the pressure forces and all the adimensional coefficients.
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	double MixedOut_Root_Function (double pressure, double *val_Averaged_Flux, double *val_normal);
+	void MixedOut_Root_Function (double pressure, double *val_Averaged_Flux, double *val_normal, double &valfunc, double &density);
 
 	/*!
 	 * \brief Provide the non dimensional lift coefficient (inviscid contribution).
