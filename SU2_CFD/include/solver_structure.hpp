@@ -905,14 +905,14 @@ public:
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	virtual void MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal, double &pressure_mix, double &density_mix);
+	virtual void MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal, double *pressure_mix, double *density_mix);
 
 	/*!
 	 * \brief A virtual member.
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	virtual void MixedOut_Root_Function (double pressure, double *val_Averaged_Flux, double *val_normal, double &valfunc, double &density);
+	virtual void MixedOut_Root_Function (double *pressure, double *val_Averaged_Flux, double *val_normal, double *valfunc, double *density);
 
 	/*!
 	 * \brief A virtual member.
@@ -2655,14 +2655,14 @@ public:
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	void MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal, double &pressure_mix, double &density_mix);
+	void MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal, double *pressure_mix, double *density_mix);
 
 	/*!
 	 * \brief Compute the pressure forces and all the adimensional coefficients.
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	void MixedOut_Root_Function (double pressure, double *val_Averaged_Flux, double *val_normal, double &valfunc, double &density);
+	void MixedOut_Root_Function (double *pressure, double *val_Averaged_Flux, double *val_normal, double *valfunc, double *density);
 
 	/*!
 	 * \brief Provide the non dimensional lift coefficient (inviscid contribution).

@@ -450,9 +450,9 @@ inline void CSolver::Viscous_DeltaForces(CGeometry *geometry, CConfig *config) {
 
 inline void CSolver::Mixing_Process(CGeometry *geometry, CConfig *config) { }
 
-inline void CSolver::MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal, double &pressure_mix, double &density_mix) { }
+inline void CSolver::MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal, double *pressure_mix, double *density_mix) { }
 
-inline void CSolver::MixedOut_Root_Function (double pressure, double *val_Averaged_Flux, double *val_normal, double &valfunc, double &density) { }
+inline void CSolver::MixedOut_Root_Function (double *pressure, double *val_Averaged_Flux, double *val_normal, double *valfunc, double *density) { }
 
 inline void CSolver::Wave_Strength(CGeometry *geometry, CConfig *config) { }
 
