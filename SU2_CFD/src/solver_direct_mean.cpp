@@ -4214,20 +4214,16 @@ void CEulerSolver::Inviscid_Forces(CGeometry *geometry, CConfig *config) {
 
 }
 
-void CEulerSolver::Mixing_Process(CGeometry *geometry, CConfig *config) {
+void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker) {
 
   unsigned long iVertex, iPoint;
   unsigned short iDim, iVar, iMarker, Boundary, Monitoring, iMarker_Monitoring;
   double Pressure = 0.0, Density = 0.0, Enthalpy = 0.0, Entropy = 0.0, *Velocity = NULL, *Normal = NULL, MomentDist[3], *Coord, Area, TotalArea, TotalPressure,
-  factor, NFPressOF, RefVel2, RefDensity, RefPressure, Gas_Constant, Mach2Vel, Mach_Motion, UnitNormal[3], Force[3];
+  factor, UnitNormal[3], Force[3];
   double *Origin = config->GetRefOriginMoment(0);
   string Marker_Tag, Monitoring_Tag;
 
   bool grid_movement      = config->GetGrid_Movement();
-//  double Alpha            = config->GetAoA()*PI_NUMBER/180.0;
-//  double Beta             = config->GetAoS()*PI_NUMBER/180.0;
-//  double RefAreaCoeff     = config->GetRefAreaCoeff();
-//  double RefLengthMoment  = config->GetRefLengthMoment();
   bool compressible = (config->GetKind_Regime() == COMPRESSIBLE);
   bool incompressible = (config->GetKind_Regime() == INCOMPRESSIBLE);
   bool freesurface = (config->GetKind_Regime() == FREESURFACE);
@@ -4242,18 +4238,12 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CConfig *config) {
 	  Boundary   = config->GetMarker_All_KindBC(iMarker);
 	  Monitoring = config->GetMarker_All_Monitoring(iMarker);
 
-//	  cout << "Boundary  : " << Boundary << endl;
-//	  cout << "Monitoring: " << Monitoring << endl;
+	  Marker_Tag = config->GetMarker_All_TagBound(iMarker);
 
-	  /*--- Obtain the origin for the moment computation for a particular marker ---*/
-	  if (Monitoring == YES) {
-		  for (iMarker_Monitoring = 0; iMarker_Monitoring < config->GetnMarker_Monitoring(); iMarker_Monitoring++) {
-			  Monitoring_Tag = config->GetMarker_Monitoring(iMarker_Monitoring);
-			  Marker_Tag = config->GetMarker_All_TagBound(iMarker);
-			  if (Marker_Tag == Monitoring_Tag)
-				  Origin = config->GetRefOriginMoment(iMarker_Monitoring);
-		  }
-	  }
+	  cout << " iMarker : " << iMarker;
+	  cout << " Marker_Tag : " << Marker_Tag;
+	  cout << "  Boundary_Type : " << Boundary;
+	  cout << " Monitoring: " << Monitoring << endl;
 
 	  if ( (Boundary == RIEMANN_BOUNDARY) && (Monitoring == YES)  ) {
 
@@ -4269,7 +4259,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CConfig *config) {
 		  TotalMomtZFlux[iMarker] = 0.0;
 		  TotalEnergyFlux[iMarker] = 0.0;
 
-		  /*--- Loop over the vertices to compute the forces ---*/
+		  /*--- Loop over the vertices to compute the averaged quantities ---*/
 
 		  for (iVertex = 0; iVertex < geometry->GetnVertex(iMarker); iVertex++) {
 
@@ -4278,13 +4268,15 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CConfig *config) {
 			  /*--- Compute the integral fluxes for the boundaries ---*/
 
 			  if (compressible) {
-				  Pressure = node[iPoint]->GetPressure();
-				  Density = node[iPoint]->GetDensity();
-				  Enthalpy = node[iPoint]->GetEnthalpy();
+				  Pressure = solver[FLOW_SOL]->node[iPoint]->GetPressure();
+				  Density = solver[FLOW_SOL]->node[iPoint]->GetDensity();
+				  Enthalpy = solver[FLOW_SOL]->node[iPoint]->GetEnthalpy();
 			  }
 			  else {
-				  cout << "Mixing process for incompressible and freesurface does not available yet " << endl;
-				  break;
+				  cout << "!!! Mixing process for incompressible and freesurface does not available yet !!! " << endl;
+				  cout << "Press any key to exit..." << endl;
+				  cin.get();
+				  exit(1);
 			  }
 
 			  /*--- Note that the fluxes from halo cells are discarded ---*/
@@ -4298,7 +4290,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CConfig *config) {
 				  double VelNormal = 0.0, VelSq = 0.0;
 				  for (iDim = 0; iDim < nDim; iDim++) {
 					  UnitNormal[iDim] = Normal[iDim]/Area;
-					  Velocity[iDim] = node[iPoint]->GetPrimitive(iDim+1);
+					  Velocity[iDim] = solver[FLOW_SOL]->node[iPoint]->GetPrimitive(iDim+1);
 					  VelNormal += UnitNormal[iDim]*Velocity[iDim];
 					  VelSq += Velocity[iDim]*Velocity[iDim];
 				  }
@@ -4340,7 +4332,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CConfig *config) {
               AveragedEnthalpy[iMarker] = FluidModel->GetStaticEnergy() + AveragedPressure[iMarker]/AveragedDensity[iMarker];
 
               cout << " pressure_mixing: " << AveragedPressure[iMarker] << endl;
-    	  	  getchar();
+//    	  	  getchar();
 		  }
 		  else {
 			  AveragedFlux[iMarker][0] = TotalMassFlux[iMarker]/TotalArea;
@@ -6943,6 +6935,91 @@ void CEulerSolver::BC_Riemann(CGeometry *geometry, CSolver **solver_container,
   delete [] invP_Tensor;
 
 }
+
+//void CEulerSolver::BC_MixingPlane(CGeometry ***geometry, CSolver ****solver_container,
+//                            CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig **config) {
+//
+//  unsigned short iDim, iVar;
+//  unsigned long iVertex, iPoint;
+//  unsigned short val_marker;
+//
+//  int nZone = 2;
+//
+//  bool implicit[nZone];
+//  bool grid_movement[nZone];
+//  string Marker_Tag[nZone];
+//  bool viscous[nZone];
+//  bool gravity[nZone];
+//  bool tkeNeeded[nZone];
+//
+///// Doesn't work for ALE
+//
+//  double *U = new double[nVar];
+//  double *Normal = new double[nDim];
+//
+//  /*--- Loop over the grid zones of the finest mesh ---*/
+//
+//  for (int iZone = 0; iZone < nZone; iZone++ ) {
+//
+//	  implicit[iZone] = (config[iZone]->GetKind_TimeIntScheme_Flow() == EULER_IMPLICIT);
+//	  grid_movement[iZone] = config[iZone]->GetGrid_Movement();
+//	  Marker_Tag[iZone] = config[iZone]->GetMarker_All_TagBound(val_marker);
+//	  viscous[iZone] = config[iZone]->GetViscous();
+//	  gravity[iZone] = (config[iZone]->GetGravityForce());
+//	  tkeNeeded[iZone] = ((config[iZone]->GetKind_Solver() == RANS) && (config[iZone]->GetKind_Turb_Model() == SST));
+//
+//	  cout << "Zone           : " << iZone << endl;
+//	  cout << "Marker_Tag zone: " << Marker_Tag[iZone] << endl;
+//
+//	  /*--- Loop over the markers of the config file ---*/
+//	  for (int iMarker = 0; iMarker < config[iZone]->GetnMarker_All(); iMarker++) {
+//
+//		  cout << "iMarker    : " << iMarker << endl;
+//
+//		  /*--- Check whether it is a donor face ---*/
+//	      if (config[iZone]->GetMarker_All_KindBC(iMarker) == SEND_RECEIVE) {  //SEND_RECEIVE to be replaced by MIXING_BOUNDARY
+//
+//	    	  val_marker = iMarker;
+//	    	  short SendRecv = config[iZone]->GetMarker_All_SendRecv(iMarker);  //used in the sliding interface of Tom, not useful here
+//
+//  			  /*--- Loop over the vertex of the boundaries ---*/
+//  			  for (iVertex = 0; iVertex < geometry[iZone][MESH_0]->nVertex[val_marker]; iVertex++) {
+//   				  iPoint = geometry[iZone][MESH_0]->vertex[iMarker][iVertex]->GetNode();
+//
+//   				  double Pressure = node[iPoint]->GetPressure();
+//   				  double Density = node[iPoint]->GetDensity();
+//   				  double Enthalpy = node[iPoint]->GetEnthalpy();
+//
+//   				  /*--- Retrieving information from the bound to compute the mixing state ---*/
+//   				  for (iVar = 0; iVar < nVar; iVar++) {
+//   					  U[iVar] = solver_container[iZone][MESH_0][FLOW_SOL]->node[iPoint]->GetSolution(iVar);
+//
+//    			  }
+//    		  }
+//    	  }
+//      }
+//
+//  /*--- Mixed-out averaging for the two sides of the mixing interface ---*/
+//
+//  if ( nDim == 2 ) {
+//  }
+//  else {
+//	  cout << "!!! Error: Mixing Plane interface not yet supported in 3-D. !!!" << endl;
+//	  cout << "Press any key to exit..." << endl;
+//	  cin.get();
+//	  exit(1);
+//  }
+//
+//  /*--- Jump of the conservative variables ---*/
+//
+//  /*--- Use the BC_Riemann to set the outlet conditions for the first mesh block ---*/
+//
+//  /*--- Use the BC_Riemann to set the inlet conditions for the second mesh block ---*/
+//
+//  /*--- Free locally memory deallocation ---*/
+//
+//  }
+//}
 
 void CEulerSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container,
                             CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker) {

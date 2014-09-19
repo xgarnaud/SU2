@@ -733,6 +733,17 @@ public:
 	 */
 	virtual void BC_Riemann(CGeometry *geometry, CSolver **solver_container,
                             CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker);
+
+//	/*!
+//	 * \brief A virtual member.
+//	 * \param[in] geometry - Geometrical definition of the problem.
+//	 * \param[in] solver_container - Container vector with all the solutions.
+//	 * \param[in] solver - Description of the numerical method.
+//	 * \param[in] config - Definition of the particular problem.
+//	 * \param[in] val_marker - Surface marker where the boundary condition is applied.
+//	 */
+//	virtual void BC_MixingPlane(CGeometry ***geometry, CSolver ****solver_container,
+//	                              CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig **config);
 		
 	/*!
 	 * \brief A virtual member.
@@ -898,7 +909,7 @@ public:
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	virtual void Mixing_Process(CGeometry *geometry, CConfig *config);
+	virtual void Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker);
 
 	/*!
 	 * \brief A virtual member.
@@ -2515,7 +2526,7 @@ public:
 	/*!
 	 * \author: G.Gori, S.Vitale, M.Pini, A.Guardone, P.Colonna
 	 *
-	 * \brief Impose the boundary condition using characteristic recostruction.
+	 * \brief Impose the boundary condition using characteristic reconstruction.
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] solver_container - Container vector with all the solutions.
 	 * \param[in] solver - Description of the numerical method.
@@ -2524,6 +2535,20 @@ public:
 	 */
 	void BC_Riemann(CGeometry *geometry, CSolver **solver_container,
                             CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker);
+
+//	/*!
+//	 * \author: M.Pini, S.Vitale
+//	 *
+//	 * \brief Mixing plane boundary conditions.
+//	 * \brief Impose the boundary condition using characteristic reconstruction.
+//	 * \param[in] geometry - Geometrical definition of the problem.
+//	 * \param[in] solver_container - Container vector with all the solutions.
+//	 * \param[in] solver - Description of the numerical method.
+//	 * \param[in] config - Definition of the particular problem.
+//	 * \param[in] val_marker - Surface marker where the boundary condition is applied.
+//	 */
+//	void BC_MixingPlane(CGeometry ***geometry, CSolver ****solver_container,
+//		                              CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig **config);
 
 	/*!
 	 * \brief Impose a subsonic inlet boundary condition.
@@ -2648,7 +2673,7 @@ public:
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	void Mixing_Process(CGeometry *geometry, CConfig *config);
+	void Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker);
 
 	/*!
 	 * \brief Compute the pressure forces and all the adimensional coefficients.

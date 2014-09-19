@@ -380,7 +380,7 @@ inline void CSolver::BC_Sym_Plane(CGeometry *geometry, CSolver **solver_containe
 									
 inline void CSolver::BC_Custom(CGeometry *geometry, CSolver **solver_container, CNumerics *numerics, 
 										 CConfig *config, unsigned short val_marker) { }
-
+										 
 inline void CSolver::BC_Riemann(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, 
 										 CConfig *config, unsigned short val_marker) { }
 										 
@@ -448,7 +448,7 @@ inline void CSolver::Inviscid_DeltaForces(CGeometry *geometry, CSolver **solver_
 
 inline void CSolver::Viscous_DeltaForces(CGeometry *geometry, CConfig *config) { }
 
-inline void CSolver::Mixing_Process(CGeometry *geometry, CConfig *config) { }
+inline void CSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker) { }
 
 inline void CSolver::MixedOut_Average (double val_init_pressure, double *val_Averaged_Flux, double *val_normal, double *pressure_mix, double *density_mix) { }
 

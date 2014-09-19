@@ -648,7 +648,7 @@ void CMultiGridIntegration::NonDimensional_Parameters(CGeometry **geometry, CSol
       solver_container[FinestMesh][FLOW_SOL]->Viscous_Forces(geometry[FinestMesh], config);
 
       /*--- Calculate the mixing process ---*/
-      solver_container[FinestMesh][FLOW_SOL]->Mixing_Process(geometry[FinestMesh], config);
+//      solver_container[FinestMesh][FLOW_SOL]->Mixing_Process(geometry[FinestMesh], solver_container[FinestMesh], config, 0);
       
       /*--- Evaluate convergence monitor ---*/
       if (config->GetConvCriteria() == CAUCHY) {

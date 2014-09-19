@@ -109,7 +109,7 @@ void CIntegration::Space_Integration(CGeometry *geometry,
 			case SYMMETRY_PLANE:
 				solver_container[MainSolver]->BC_Sym_Plane(geometry, solver_container, numerics[CONV_BOUND_TERM], numerics[VISC_BOUND_TERM], config, iMarker);
 				break;
-      case NACELLE_EXHAUST:
+			case NACELLE_EXHAUST:
 				solver_container[MainSolver]->BC_Nacelle_Exhaust(geometry, solver_container, numerics[CONV_BOUND_TERM], numerics[VISC_BOUND_TERM], config, iMarker);
 				break;
 			case NACELLE_INFLOW:
@@ -136,7 +136,7 @@ void CIntegration::Space_Integration(CGeometry *geometry,
 			case LOAD_BOUNDARY:
 				solver_container[MainSolver]->BC_Normal_Load(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
 				break;
-      case PRESSURE_BOUNDARY:
+			case PRESSURE_BOUNDARY:
 				solver_container[MainSolver]->BC_Pressure(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
 				break;
 			case NEUMANN:
