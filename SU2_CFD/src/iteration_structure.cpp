@@ -1723,11 +1723,12 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
 
   unsigned short iDim, iVar;
   unsigned long iVertex, iPoint;
-  unsigned short val_marker;
+  unsigned short val_Marker = 100;
+  unsigned short Boundary, Monitoring;
 
   bool implicit[nZone];
   bool grid_movement[nZone];
-  string Marker_Tag[nZone];
+  string Marker_Tag;
   bool viscous[nZone];
   bool gravity[nZone];
   bool tkeNeeded[nZone];
@@ -1735,8 +1736,13 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
   unsigned short nDim = geometry_container[ZONE_0][MESH_0]->GetnDim();
   unsigned short nVar = solver_container[ZONE_0][MESH_0][FLOW_SOL]->GetnVar();
 
-  double *U = new double[nVar];
-  double *Normal = new double[nDim];
+  double **U = new double* [nZone];
+  for (unsigned short jZone = 0; jZone < nZone; jZone++) {
+	  U[jZone] = new double [nVar];
+	  for (iVar = 0; iVar < nVar; iVar++) {
+		  U[jZone][iVar] = 0.0;
+	  }
+  }
 
   /*--- Loop over the grid zones of the finest mesh ---*/
 
@@ -1755,18 +1761,76 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
 
 	  /// N.B. backflow capability not currently supported
 
-	  if ( nDim == 2 ) {
-		  solver_container[jZone][MESH_0][FLOW_SOL]->Mixing_Process(geometry_container[jZone][MESH_0], solver_container[jZone][MESH_0],
-				  	  	  	  	  	  	  	  	  	  	  	  	  config_container[jZone], val_marker);
-	  }
-	  else {
-		  cout << "!!! Error: Mixing Plane interface not yet supported in 3-D. !!!" << endl;
-		  cout << "Press any key to exit..." << endl;
-		  cin.get();
-		  exit(1);
+	  int nMarker = config_container[jZone]->GetnMarker_All();
+	  for (int iMarker = 0; iMarker < nMarker; iMarker++) {
+		  Boundary   = config_container[jZone]->GetMarker_All_KindBC(iMarker);
+		  Monitoring = config_container[jZone]->GetMarker_All_Monitoring(iMarker);
+		  Marker_Tag = config_container[jZone]->GetMarker_All_TagBound(iMarker);
+		  cout << " iMarker : " << iMarker;
+		  cout << "  Marker_Tag : " << Marker_Tag;
+		  cout << "  Boundary_Type : " << Boundary;
+		  cout << "  Monitoring: " << Monitoring << endl;
+		  if ( Monitoring == YES ) {
+			  val_Marker = iMarker;
+
+		  	  if ( nDim == 2 ) {
+		  		  solver_container[jZone][MESH_0][FLOW_SOL]->Mixing_Process(geometry_container[jZone][MESH_0], solver_container[jZone][MESH_0],
+					  	  	  	  	  	  	  	  	  	  	  	  	  config_container[jZone], val_Marker);
+		  		  cout << " Averaged Pressure: " << solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedPressure(val_Marker) << endl;
+		  		  solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedConservatives(val_Marker,U[jZone]);
+//		  		  cout << " Conservative 0 : " << U[jZone][0] << endl;
+//		  		  cout << " Conservative 1 : " << U[jZone][1] << endl;
+//		  		  cout << " Conservative 2 : " << U[jZone][2] << endl;
+//		  		  cout << " Conservative 3 : " << U[jZone][3] << endl;
+		  		  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedConservatives(val_Marker);
+		  		  solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedConservatives(val_Marker,U[jZone]);
+//		  		  cout << " Conservative 0 : " << U[jZone][0] << endl;
+//		  		  cout << " Conservative 1 : " << U[jZone][1] << endl;
+//		  		  cout << " Conservative 2 : " << U[jZone][2] << endl;
+//		  		  cout << " Conservative 3 : " << U[jZone][3] << endl;
+		  	  }
+		  	  else {
+		  		  cout << "!!! Error: Mixing Plane interface not yet supported in 3-D. !!!" << endl;
+		  		  cout << "Press any key to exit..." << endl;
+		  		  cin.get();
+		  		  exit(1);
+		  	  }
+		  }
 	  }
 
-	  /*--- Loop over the markers of the config file (does not separe zones for multi-block grids) ---*/
+	  cout << endl;
+  }
+
+  /*--- Assigne the averaged  ---*/
+
+  int iter = 0;
+
+  for (unsigned short jZone = iZone; jZone < nZone+iZone; jZone++ ) {
+	  if ( iter == 0 ) {
+		  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedConservativesLeft(val_Marker,U[jZone]);
+		  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedConservativesRight(val_Marker,U[jZone+1]);
+	  }
+	  else {
+		  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedConservativesLeft(val_Marker,U[jZone-1]);
+		  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedConservativesRight(val_Marker,U[jZone]);
+	  }
+	  iter += 1;
+  }
+
+
+  /*--- Strong imposition of the averaged quantities at mixing interfaces ---*/
+
+  /*--- Use the BC_Mixing_Riemann to set the outlet conditions for the first mesh block ---*/
+
+//  solver_container[iZone][MESH_0][FLOW_SOL]->BC_Mixing_Riemann(geometry_container[iZone][MESH_0], solver_container[iZone][MESH_0],
+//		                  numerics_container[iZone][MESH_0][FLOW_SOL][CONV_BOUND_TERM], numerics_container[iZone][MESH_0][FLOW_SOL][VISC_BOUND_TERM],
+//		                  config_container[iZone], U_averaged[0], U_averaged[1], val_marker);
+
+  /*--- Free locally memory deallocation ---*/
+
+}
+
+/*--- Loop over the markers of the config file (does not separe zones for multi-block grids) ---*/
 
 //	  for (int iMarker = 0; iMarker < config_container[jZone]->GetnMarker_All(); iMarker++) {
 //
@@ -1797,27 +1861,4 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
 //
 //    			  }
 //    		  }
-  }
-
-  /*--- Jump of the conservative variables ---*/
-
-  /*--- Strong imposition of the averaged quantities at mixing interfaces ---*/
-
-  for (int jZone = iZone; jZone < nZone+iZone; jZone++ ) {
-
-	  /*--- Use the BC_Riemann to set the outlet conditions for the first mesh block ---*/
-//	  solver_container[iZone][MESH_0][FLOW_SOL]->BC_Riemann(geometry_container[iZone][MESH_0], solver_container[iZone][MESH_0],
-//			                  numerics_container[iZone][MESH_0][FLOW_SOL][CONV_BOUND_TERM], numerics_container[iZone][MESH_0][FLOW_SOL][VISC_BOUND_TERM],
-//			                  config_container[iZone], val_marker);
-
-	  /*--- Use the BC_Riemann to set the inlet conditions for the second mesh block ---*/
-//	  solver_container[iZone][MESH_0][FLOW_SOL]->BC_Riemann(geometry_container[iZone][MESH_0], solver_container[iZone][MESH_0],
-//			                  numerics_container[iZone][MESH_0][FLOW_SOL][CONV_BOUND_TERM], numerics_container[iZone][MESH_0][FLOW_SOL][VISC_BOUND_TERM],
-//			                  config_container[iZone], val_marker);
-  }
-
-
-  /*--- Free locally memory deallocation ---*/
-
-}
 

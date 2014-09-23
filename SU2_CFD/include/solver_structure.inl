@@ -383,6 +383,9 @@ inline void CSolver::BC_Custom(CGeometry *geometry, CSolver **solver_container, 
 										 
 inline void CSolver::BC_Riemann(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, 
 										 CConfig *config, unsigned short val_marker) { }
+
+inline void CSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, 
+                                         CConfig *config, double *val_U_i, double *val_U_e, unsigned short val_marker) { }
 										 
 inline void CSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, 
 										 CConfig *config, unsigned short val_marker) { }
@@ -525,6 +528,51 @@ inline double CEulerSolver::GetModVelocity_Inf(void) {
 	for (unsigned short iDim = 0; iDim < nDim; iDim++) 
 		Vel2 += Velocity_Inf[iDim]*Velocity_Inf[iDim]; 
 	return sqrt(Vel2);
+}
+
+inline double CSolver::GetAveragedPressure( unsigned short val_Marker ) { return 0; }
+
+inline double CEulerSolver::GetAveragedPressure( unsigned short val_Marker ) {
+	return AveragedPressure[val_Marker];
+}
+
+inline void CSolver::SetAveragedConservatives( unsigned short val_Marker ) { }
+
+inline void CEulerSolver::SetAveragedConservatives( unsigned short val_Marker ) {
+	double AveragedVelocity2 = 0.0;
+	for (unsigned short iDim = 0; iDim < nDim; iDim++) {
+		AveragedVelocity2 += AveragedVelocity[val_Marker][iDim]*AveragedVelocity[val_Marker][iDim];
+	}
+   	U_Averaged[val_Marker][0] = AveragedDensity[val_Marker];
+	for (unsigned short iDim = 0; iDim < nDim; iDim++) {
+	    U_Averaged[val_Marker][iDim+1] = AveragedDensity[val_Marker]*AveragedVelocity[val_Marker][iDim];
+    }
+    double AveragedStaticEnergy = AveragedEnthalpy[val_Marker] - AveragedPressure[val_Marker]/AveragedDensity[val_Marker]; 
+    U_Averaged[val_Marker][nVar-1] = AveragedDensity[val_Marker] * ( AveragedStaticEnergy + 0.5*AveragedVelocity2 );
+}
+
+inline void CSolver::SetAveragedConservativesLeft( unsigned short val_Marker, double *val_U ) { }
+
+inline void CEulerSolver::SetAveragedConservativesLeft( unsigned short val_Marker, double *val_U ) {
+	for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+		Ul_Averaged[val_Marker][iVar] = val_U[iVar];
+	}
+}
+
+inline void CSolver::SetAveragedConservativesRight( unsigned short val_Marker, double *val_U ) { }
+
+inline void CEulerSolver::SetAveragedConservativesRight( unsigned short val_Marker, double *val_U ) {
+	for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+		Ur_Averaged[val_Marker][iVar] = val_U[iVar];
+	}
+}
+
+inline void CSolver::GetAveragedConservatives( unsigned short val_Marker, double *val_U ) { }
+
+inline void CEulerSolver::GetAveragedConservatives( unsigned short val_Marker, double *val_U ) {
+	for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+		val_U[iVar] = U_Averaged[val_Marker][iVar];
+	}
 }
 
 inline double CEulerSolver::GetDensity_Energy_Inf(void) { return Density_Inf*Energy_Inf; }
