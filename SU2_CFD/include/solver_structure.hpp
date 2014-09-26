@@ -748,7 +748,7 @@ public:
 	 * \param[in] val_marker - Surface marker where the boundary condition is applied.
 	 */
 	virtual void BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_container,
-	                          CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, double *val_U_i, double *val_U_e, unsigned short val_marker);
+	                          CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker);
 		
 	/*!
 	 * \brief A virtual member.
@@ -912,42 +912,36 @@ public:
 	/*!
 	 * \brief A virtual member.
 	 * \param[in] geometry - Geometrical definition of the problem.
+	 * \param[in] solver_container - Container vector with all the solutions.
 	 * \param[in] config - Definition of the particular problem.
 	 */
 	virtual void Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker);
 
 	/*!
 	 * \brief A virtual member.
-	 * \param[in] geometry - Geometrical definition of the problem.
-	 * \param[in] config - Definition of the particular problem.
 	 */
 	virtual double GetAveragedPressure( unsigned short val_Marker );
 
 	/*!
 	 * \brief A virtual member.
-	 * \param[in] geometry - Geometrical definition of the problem.
-	 * \param[in] config - Definition of the particular problem.
 	 */
 	virtual void SetAveragedConservatives( unsigned short val_Marker );
 
 	/*!
 	 * \brief A virtual member.
-	 * \param[in] geometry - Geometrical definition of the problem.
-	 * \param[in] config - Definition of the particular problem.
+	 * \param[in] *val_U - averaged conservative variable vector.
 	 */
-	virtual void SetAveragedConservativesLeft( unsigned short val_Marker, double *val_U );
+	virtual void SetAveragedIntConservatives( unsigned short val_Marker, double *val_U );
 
 	/*!
 	 * \brief A virtual member.
-	 * \param[in] geometry - Geometrical definition of the problem.
-	 * \param[in] config - Definition of the particular problem.
+	 * \param[in] *val_U - averaged conservative variable vector.
 	 */
-	virtual void SetAveragedConservativesRight( unsigned short val_Marker, double *val_U );
+	virtual void SetAveragedExtConservatives( unsigned short val_Marker, double *val_U );
 
 	/*!
 	 * \brief A virtual member.
-	 * \param[in] geometry - Geometrical definition of the problem.
-	 * \param[in] config - Definition of the particular problem.
+	 * \param[in] *val_U - averaged conservative variable vector.
 	 */
 	virtual void GetAveragedConservatives( unsigned short val_Marker, double *val_U );
 
@@ -2095,8 +2089,8 @@ protected:
     **AveragedFlux,  /*!< \brief Averaged flux. */
     **AveragedVelocity, /*!< \brief Mixing velocity for each monitoring surface. */
     **U_Averaged, /*!< \brief Mixing conservative state for each monitoring surface. */
-    **Ul_Averaged, /*!< \brief Mixing conservative state for each monitoring surface. */
-    **Ur_Averaged; /*!< \brief Mixing conservative state for each monitoring surface. */
+    **Ui_Averaged, /*!< \brief Mixing conservative state for each monitoring surface. */
+    **Ue_Averaged; /*!< \brief Mixing conservative state for each monitoring surface. */
 
   double
   AllBound_CDrag_Inv,	/*!< \brief Total drag coefficient (inviscid contribution) for all the boundaries. */
@@ -2588,12 +2582,10 @@ public:
 	 * \param[in] solver_container - Container vector with all the solutions.
 	 * \param[in] solver - Description of the numerical method.
 	 * \param[in] config - Definition of the particular problem.
-	 * \param[in] val_U_i - internal averaged state (e.g. stator outlet).
-	 * \param[in] val_U_e - intermediate averaged state (e.g. rotor outlet).
 	 * \param[in] val_marker - Surface marker where the boundary condition is applied.
 	 */
 	void BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_container,
-	                          CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, double *val_U_i, double *val_U_e, unsigned short val_marker);
+	                          CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker);
 
 	/*!
 	 * \brief Impose a subsonic inlet boundary condition.
@@ -2739,14 +2731,14 @@ public:
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	void SetAveragedConservativesLeft( unsigned short val_Marker, double *val_U );
+	void SetAveragedIntConservatives( unsigned short val_Marker, double *val_U );
 
 	/*!
 	 * \brief A virtual member.
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	void SetAveragedConservativesRight( unsigned short val_Marker, double *val_U );
+	void SetAveragedExtConservatives( unsigned short val_Marker, double *val_U );
 
 	/*!
 	 * \brief A virtual member.

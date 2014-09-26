@@ -348,19 +348,19 @@ CEulerSolver::CEulerSolver(CGeometry *geometry, CConfig *config, unsigned short 
 	  }
   }
 
-  Ul_Averaged = new double* [nMarker];
+  Ui_Averaged = new double* [nMarker];
   for (iMarker = 0; iMarker < nMarker; iMarker++) {
-	  Ul_Averaged[iMarker] = new double [nVar];
+	  Ui_Averaged[iMarker] = new double [nVar];
 	  for (iVar = 0; iVar < nVar; iVar++) {
-		  Ul_Averaged[iMarker][iVar] = 0.0;
+		  Ui_Averaged[iMarker][iVar] = 0.0;
 	  }
   }
 
-  Ur_Averaged = new double* [nMarker];
+  Ue_Averaged = new double* [nMarker];
   for (iMarker = 0; iMarker < nMarker; iMarker++) {
-	  Ur_Averaged[iMarker] = new double [nVar];
+	  Ue_Averaged[iMarker] = new double [nVar];
 	  for (iVar = 0; iVar < nVar; iVar++) {
-		  Ur_Averaged[iMarker][iVar] = 0.0;
+		  Ue_Averaged[iMarker][iVar] = 0.0;
 	  }
   }
 
@@ -683,14 +683,14 @@ CEulerSolver::~CEulerSolver(void) {
   delete [] U_Averaged;
 
   for (iVar = 0; iVar < nVar; iVar++) {
-	  delete [] Ul_Averaged[iVar];
+	  delete [] Ui_Averaged[iVar];
   }
-  delete [] Ul_Averaged;
+  delete [] Ui_Averaged;
 
   for (iVar = 0; iVar < nVar; iVar++) {
-	  delete [] Ur_Averaged[iVar];
+	  delete [] Ue_Averaged[iVar];
   }
-  delete [] Ur_Averaged;
+  delete [] Ue_Averaged;
 
 }
 
@@ -4256,8 +4256,8 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 
   unsigned long iVertex, iPoint;
   unsigned short iDim, iVar, iMarker, Boundary, Monitoring, iMarker_Monitoring;
-  double Pressure = 0.0, Density = 0.0, Enthalpy = 0.0, Entropy = 0.0, *Velocity = NULL, *Normal = NULL, MomentDist[3], *Coord, Area, TotalArea, TotalPressure,
-  factor, UnitNormal[3], AveragedVelocity2;
+  double Pressure = 0.0, Density = 0.0, Enthalpy = 0.0, Entropy = 0.0, *Velocity = NULL, *Normal = NULL, MomentDist[3], *Coord,
+		  Area, TotalArea, TotalAreaPressure, AreaAveragedPressure, factor, UnitNormal[3], AveragedVelocity2;
   double *Origin = config->GetRefOriginMoment(0);
   string Marker_Tag, Monitoring_Tag;
 
@@ -4307,6 +4307,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 			  /*--- Compute the integral fluxes for the boundaries ---*/
 
 			  if (compressible) {
+				  solver[FLOW_SOL]->node[iPoint]->SetPrimVar_Compressible(FluidModel);
 				  Pressure = solver[FLOW_SOL]->node[iPoint]->GetPressure();
 				  Density = solver[FLOW_SOL]->node[iPoint]->GetDensity();
 				  Enthalpy = solver[FLOW_SOL]->node[iPoint]->GetEnthalpy();
@@ -4342,7 +4343,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 					  TotalMomtYFlux[iMarker] += Area*(Density*VelNormal*Velocity[1] + Pressure*UnitNormal[1] );
 					  TotalEnergyFlux[iMarker] += Area*(Density*VelNormal*(Enthalpy+VelSq/2) );
 					  TotalArea += Area;
-    			  	  TotalPressure += Pressure;
+    			  	  TotalAreaPressure += Area*Pressure;
 				  }
 				  else {
 					  TotalMassFlux[iMarker] += Area*(Density*VelNormal);
@@ -4351,7 +4352,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
     			  	  TotalMomtZFlux[iMarker] += Area*(Density*VelNormal*Velocity[2] + Pressure*UnitNormal[2] );
     			  	  TotalEnergyFlux[iMarker] += Area*(Density*VelNormal*(Enthalpy+VelSq/2) );
     			  	  TotalArea += Area;
-    			  	  TotalPressure += Pressure;
+    			  	  TotalAreaPressure += Area*Pressure;
 				  }
 			  }
 		  }
@@ -4361,8 +4362,8 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 			  AveragedFlux[iMarker][1] = TotalMomtXFlux[iMarker]/TotalArea;
 			  AveragedFlux[iMarker][2] = TotalMomtYFlux[iMarker]/TotalArea;
 			  AveragedFlux[iMarker][3] = TotalEnergyFlux[iMarker]/TotalArea;
-			  double val_init_pressure = TotalPressure/geometry->GetnVertex(iMarker);
-    	  	  cout << " pressure_average: " << val_init_pressure << endl;
+			  double val_init_pressure = TotalAreaPressure/TotalArea;
+//    	  	  cout << " pressure_average: " << val_init_pressure << endl;
 
 			  MixedOut_Average (val_init_pressure, AveragedFlux[iMarker], UnitNormal, &AveragedPressure[iMarker], &AveragedDensity[iMarker]);
 			  FluidModel->SetTDState_Prho(AveragedPressure[iMarker], AveragedDensity[iMarker]);
@@ -4370,19 +4371,8 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 			  AveragedVelocity[iMarker][1] = ( AveragedFlux[iMarker][2] - AveragedPressure[iMarker]*UnitNormal[1] ) / AveragedFlux[iMarker][0];
               AveragedEnthalpy[iMarker] = FluidModel->GetStaticEnergy() + AveragedPressure[iMarker]/AveragedDensity[iMarker];
 
-              /*--- averaged conservative state ---*/
-//              AveragedVelocity2 = 0.0;
-//			  for (iDim = 0; iDim < nDim; iDim++) {
-//				  AveragedVelocity2 += AveragedVelocity[iMarker][iDim]*AveragedVelocity[iMarker][iDim];
-//			  }
-
-//              U_Averaged[iMarker][0] = AveragedDensity[iMarker];
-//              U_Averaged[iMarker][1] = AveragedDensity[iMarker]*AveragedVelocity[iMarker][0];
-//              U_Averaged[iMarker][2] = AveragedDensity[iMarker]*AveragedVelocity[iMarker][1];
-//              U_Averaged[iMarker][3] = AveragedDensity[iMarker]* ( FluidModel->GetStaticEnergy() + 0.5*AveragedVelocity2 );
-
-              cout << " pressure_mixing: " << AveragedPressure[iMarker];
-              cout << " density_mixing : " << AveragedDensity[iMarker] << endl;
+//              cout << " pressure_mixing: " << AveragedPressure[iMarker];
+//              cout << " density_mixing : " << AveragedDensity[iMarker] << endl;
 //    	  	  getchar();
 		  }
 		  else {
@@ -4391,7 +4381,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 			  AveragedFlux[iMarker][2] = TotalMomtYFlux[iMarker]/TotalArea;
 			  AveragedFlux[iMarker][3] = TotalMomtZFlux[iMarker]/TotalArea;
 			  AveragedFlux[iMarker][4] = TotalEnergyFlux[iMarker]/TotalArea;
-			  double val_init_pressure = TotalPressure/geometry->GetnVertex(iMarker);
+			  double val_init_pressure = TotalAreaPressure/TotalArea;
 			  MixedOut_Average (val_init_pressure, AveragedFlux[iMarker], UnitNormal, &AveragedPressure[iMarker], &AveragedDensity[iMarker]);
 			  FluidModel->SetTDState_Prho(AveragedPressure[iMarker], AveragedDensity[iMarker]);
 			  AveragedVelocity[iMarker][0] = ( AveragedFlux[iMarker][1] - AveragedPressure[iMarker]*UnitNormal[0] ) / AveragedFlux[iMarker][0];
@@ -4470,7 +4460,7 @@ void CEulerSolver::MixedOut_Average (double val_init_pressure, double *val_Avera
 		*pressure_mix += relax_factor*(deltaP);
 		iter += 1;
 
-		cout << "iter: " << iter << " val_func: " << *val_func  << " resdl: " << resdl << " toll: " << toll << " pressure_mix: " << *pressure_mix << endl;
+//		cout << "iter: " << iter << " val_func: " << *val_func  << " resdl: " << resdl << " toll: " << toll << " pressure_mix: " << *pressure_mix << endl;
 
 		if ( abs(resdl) <= toll ) {
 			break;
@@ -4483,28 +4473,6 @@ void CEulerSolver::MixedOut_Average (double val_init_pressure, double *val_Avera
 //	cout << " val_func: " << *val_func << endl;
 
     MixedOut_Root_Function(pressure_mix,val_Averaged_Flux,val_normal,val_func,density_mix);
-
-//	cout << " pressure_mix        : " << *pressure_mix << endl;
-//	cout << " density_mix         : " << *density_mix << endl;
-//	cout << " val_Averaged_Flux[0]: " << val_Averaged_Flux[0] << endl;
-//	cout << " val_Averaged_Flux[1]: " << val_Averaged_Flux[1] << endl;
-//	cout << " val_Averaged_Flux[2]: " << val_Averaged_Flux[2] << endl;
-//	cout << " val_Averaged_Flux[3]: " << val_Averaged_Flux[3] << endl;
-//	cout << " val_normal[0]       : " << val_normal[0] << endl;
-//	cout << " val_normal[1]       : " << val_normal[1] << endl;
-//	cout << " val_func: " << *val_func << endl;
-
-//    MixedOut_Root_Function(pressure_mix,val_Averaged_Flux,val_normal,val_func,density_mix);
-
-//	cout << " pressure_mix: " << *pressure_mix << endl;
-//	cout << " density_mix: " << *density_mix << endl;
-//	cout << " val_Averaged_Flux[0]: " << val_Averaged_Flux[0] << endl;
-//	cout << " val_Averaged_Flux[1]: " << val_Averaged_Flux[1] << endl;
-//	cout << " val_Averaged_Flux[2]: " << val_Averaged_Flux[2] << endl;
-//	cout << " val_Averaged_Flux[3]: " << val_Averaged_Flux[3] << endl;
-//	cout << " val_func: " << *val_func << endl;
-//	cout << " val_normal[0]       : " << val_normal[0] << endl;
-//	cout << " val_normal[1]       : " << val_normal[1] << endl;
 
 }
 
@@ -7000,7 +6968,7 @@ void CEulerSolver::BC_Riemann(CGeometry *geometry, CSolver **solver_container,
 }
 
 void CEulerSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_container,
-                            CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, double *val_U_i, double *val_U_e, unsigned short val_marker) {
+                            CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker) {
   unsigned short iDim, iVar, jVar, kVar;
   unsigned long iVertex, iPoint, Point_Normal;
   double P_Total, T_Total, P_static, T_static, Rho_static, *Mach, *Flow_Dir, Area, UnitNormal[3];
@@ -7078,13 +7046,13 @@ void CEulerSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_conta
         Velocity2_i = 0;
         for(iDim=0; iDim < nDim; iDim++)
         {
-            Velocity_i[iDim] = val_U_i[iDim+1]/ val_U_i[0];
+            Velocity_i[iDim] = Ui_Averaged[val_marker][iDim+1]/ Ui_Averaged[val_marker][0];
             Velocity2_i += Velocity_i[iDim]*Velocity_i[iDim];
         }
 
-        Density_i = val_U_i[0];
+        Density_i = Ui_Averaged[val_marker][0];
 
-        Energy_i = val_U_i[nVar]/ val_U_i[0];
+        Energy_i = Ui_Averaged[val_marker][nVar-1]/ Ui_Averaged[val_marker][0];
         StaticEnergy_i = Energy_i - 0.5*Velocity2_i;
 
         FluidModel->SetTDState_rhoe(Density_i, StaticEnergy_i);
@@ -7105,13 +7073,13 @@ void CEulerSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_conta
         Velocity2_e = 0;
         for(iDim=0; iDim < nDim; iDim++)
         {
-        	Velocity_e[iDim] = val_U_e[iDim+1]/ val_U_e[0];
+        	Velocity_e[iDim] = Ue_Averaged[val_marker][iDim+1]/ Ue_Averaged[val_marker][0];
             Velocity2_e += Velocity_e[iDim]*Velocity_e[iDim];
         }
 
-        Density_e = val_U_e[0];
+        Density_e = Ue_Averaged[val_marker][0];
 
-        Energy_e = val_U_e[nVar]/ val_U_e[0];
+        Energy_e = Ue_Averaged[val_marker][nVar-1]/ Ue_Averaged[val_marker][0];
         StaticEnergy_e = Energy_e - 0.5*Velocity2_e;
 
         FluidModel->SetTDState_rhoe(Density_e, StaticEnergy_e);
@@ -7134,9 +7102,9 @@ void CEulerSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_conta
         Lambda_i[nVar-1] = ProjVelocity_i - SoundSpeed_i;
 
         /*--- Set the internal conservative states ---*/
-        for (nVar = 0; iVar < nVar; iVar++) {
-        	u_e[iVar] = val_U_e[iVar];
-            u_i[iVar] = val_U_i[iVar];
+        for (iVar = 0; iVar < nVar; iVar++) {
+        	u_e[iVar] = Ue_Averaged[val_marker][iVar];
+            u_i[iVar] = Ui_Averaged[val_marker][iVar];
         }
 
         /*--- Compute the characteristic jumps ---*/
@@ -7338,6 +7306,7 @@ void CEulerSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_conta
 
   delete [] S_boundary;
   delete [] Lambda_i;
+
   delete [] u_i;
   delete [] u_e;
   delete [] u_b;

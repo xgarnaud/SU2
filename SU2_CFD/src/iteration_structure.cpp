@@ -42,25 +42,31 @@ void MeanFlowIteration(COutput *output, CIntegration ***integration_container, C
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 #endif
   
-  /*--- Set the initial condition ---*/
-  for (iZone = 0; iZone < nZone; iZone++)
-    solver_container[iZone][MESH_0][FLOW_SOL]->SetInitialCondition(geometry_container[iZone], solver_container[iZone], config_container[iZone], ExtIter);
+	/*--- Set the initial condition ---*/
+
+	for (iZone = 0; iZone < nZone; iZone++)
+		solver_container[iZone][MESH_0][FLOW_SOL]->SetInitialCondition(geometry_container[iZone], solver_container[iZone], config_container[iZone], ExtIter);
   
-  /*--- Initial set up for unsteady problems with dynamic meshes. ---*/
+  	/*--- Initial set up for unsteady problems with dynamic meshes. ---*/
   
-	for (iZone = 0; iZone < nZone; iZone++) {
+  	for (iZone = 0; iZone < nZone; iZone++) {
     
-    /*--- Dynamic mesh update ---*/
+	  	/*--- Dynamic mesh update ---*/
     
 		if ((config_container[iZone]->GetGrid_Movement()) && (!time_spectral)){
 			SetGrid_Movement(geometry_container[iZone], surface_movement[iZone], grid_movement[iZone], FFDBox[iZone], solver_container[iZone],config_container[iZone], iZone, IntIter, ExtIter);
-    }
+		}
     
-    /*--- Apply a Wind Gust ---*/
+		/*--- Apply a Wind Gust ---*/
     
-    if (config_container[ZONE_0]->GetWind_Gust()){
-      SetWind_GustField(config_container[iZone],geometry_container[iZone],solver_container[iZone]);
-    }
+		if (config_container[ZONE_0]->GetWind_Gust()){
+			SetWind_GustField(config_container[iZone],geometry_container[iZone],solver_container[iZone]);
+		}
+  	}
+
+    /*--- Apply the Mixing Plane to all mixing zones before proceeding with the calculation ---*/
+	for (iZone = 0; iZone < nZone-1; iZone++) {
+		SetMixingPlane(geometry_container, solver_container, numerics_container, config_container, nZone, (iZone)%nZone);
 	}
   
 	for (iZone = 0; iZone < nZone; iZone++) {
@@ -82,7 +88,7 @@ void MeanFlowIteration(COutput *output, CIntegration ***integration_container, C
 		if (config_container[iZone]->GetKind_Solver() == RANS){
 			config_container[iZone]->SetGlobalParam(RANS, RUNTIME_FLOW_SYS, ExtIter);
 		}
-    
+
 		/*--- Solve the Euler, Navier-Stokes or Reynolds-averaged Navier-Stokes (RANS) equations (one iteration) ---*/
     
 		integration_container[iZone][FLOW_SOL]->MultiGrid_Iteration(geometry_container, solver_container, numerics_container,
@@ -112,11 +118,6 @@ void MeanFlowIteration(COutput *output, CIntegration ***integration_container, C
 			SetTimeSpectral(geometry_container, solver_container, config_container, nZone, (iZone+1)%nZone);
     
 	}
-
-	///////////////////// Mixing-Plane
-	SetMixingPlane(geometry_container, solver_container, numerics_container, config_container, nZone, (iZone)%nZone);
-	getchar();
-    /////////////////////
 
 	/*--- Dual time stepping strategy ---*/
   
@@ -1754,8 +1755,8 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
 	  gravity[jZone] = (config_container[jZone]->GetGravityForce());
 	  tkeNeeded[jZone] = ((config_container[jZone]->GetKind_Solver() == RANS) && (config_container[jZone]->GetKind_Turb_Model() == SST));
 
-	  cout << "nZone : " << nZone;
-	  cout << " iZone : " << jZone << endl;
+//	  cout << "nZone : " << nZone;
+//	  cout << " iZone : " << jZone << endl;
 
 	  /*--- Mixed-out averaging for the two sides of the mixing interface ---*/
 
@@ -1766,28 +1767,20 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
 		  Boundary   = config_container[jZone]->GetMarker_All_KindBC(iMarker);
 		  Monitoring = config_container[jZone]->GetMarker_All_Monitoring(iMarker);
 		  Marker_Tag = config_container[jZone]->GetMarker_All_TagBound(iMarker);
-		  cout << " iMarker : " << iMarker;
-		  cout << "  Marker_Tag : " << Marker_Tag;
-		  cout << "  Boundary_Type : " << Boundary;
-		  cout << "  Monitoring: " << Monitoring << endl;
+//		  cout << " iMarker : " << iMarker;
+//		  cout << "  Marker_Tag : " << Marker_Tag;
+//		  cout << "  Boundary_Type : " << Boundary;
+//		  cout << "  Monitoring: " << Monitoring << endl;
 		  if ( Monitoring == YES ) {
 			  val_Marker = iMarker;
 
 		  	  if ( nDim == 2 ) {
 		  		  solver_container[jZone][MESH_0][FLOW_SOL]->Mixing_Process(geometry_container[jZone][MESH_0], solver_container[jZone][MESH_0],
 					  	  	  	  	  	  	  	  	  	  	  	  	  config_container[jZone], val_Marker);
-		  		  cout << " Averaged Pressure: " << solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedPressure(val_Marker) << endl;
+//		  		  cout << " Averaged Pressure: " << solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedPressure(val_Marker) << endl;
 		  		  solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedConservatives(val_Marker,U[jZone]);
-//		  		  cout << " Conservative 0 : " << U[jZone][0] << endl;
-//		  		  cout << " Conservative 1 : " << U[jZone][1] << endl;
-//		  		  cout << " Conservative 2 : " << U[jZone][2] << endl;
-//		  		  cout << " Conservative 3 : " << U[jZone][3] << endl;
 		  		  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedConservatives(val_Marker);
 		  		  solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedConservatives(val_Marker,U[jZone]);
-//		  		  cout << " Conservative 0 : " << U[jZone][0] << endl;
-//		  		  cout << " Conservative 1 : " << U[jZone][1] << endl;
-//		  		  cout << " Conservative 2 : " << U[jZone][2] << endl;
-//		  		  cout << " Conservative 3 : " << U[jZone][3] << endl;
 		  	  }
 		  	  else {
 		  		  cout << "!!! Error: Mixing Plane interface not yet supported in 3-D. !!!" << endl;
@@ -1798,33 +1791,37 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
 		  }
 	  }
 
-	  cout << endl;
   }
 
-  /*--- Assigne the averaged  ---*/
+  /*--- Assignment of the averaged quantities as left/right averaged states of both edges/faces of the mixing plane ---*/
 
   int iter = 0;
 
   for (unsigned short jZone = iZone; jZone < nZone+iZone; jZone++ ) {
+	  int nMarker = config_container[jZone]->GetnMarker_All();
+
 	  if ( iter == 0 ) {
-		  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedConservativesLeft(val_Marker,U[jZone]);
-		  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedConservativesRight(val_Marker,U[jZone+1]);
+		  for (int iMarker = 0; iMarker < nMarker; iMarker++) {
+			  Monitoring = config_container[jZone]->GetMarker_All_Monitoring(iMarker);
+			  if ( Monitoring == YES ) {
+				  val_Marker = iMarker;
+				  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedIntConservatives(val_Marker,U[jZone]);
+				  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedExtConservatives(val_Marker,U[jZone+1]);
+			  }
+		  }
 	  }
 	  else {
-		  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedConservativesLeft(val_Marker,U[jZone-1]);
-		  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedConservativesRight(val_Marker,U[jZone]);
+		  for (int iMarker = 0; iMarker < nMarker; iMarker++) {
+			  Monitoring = config_container[jZone]->GetMarker_All_Monitoring(iMarker);
+			  if ( Monitoring == YES ) {
+				  val_Marker = iMarker;
+				  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedIntConservatives(val_Marker,U[jZone]);
+				  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedExtConservatives(val_Marker,U[jZone-1]);
+			  }
+		  }
 	  }
 	  iter += 1;
   }
-
-
-  /*--- Strong imposition of the averaged quantities at mixing interfaces ---*/
-
-  /*--- Use the BC_Mixing_Riemann to set the outlet conditions for the first mesh block ---*/
-
-//  solver_container[iZone][MESH_0][FLOW_SOL]->BC_Mixing_Riemann(geometry_container[iZone][MESH_0], solver_container[iZone][MESH_0],
-//		                  numerics_container[iZone][MESH_0][FLOW_SOL][CONV_BOUND_TERM], numerics_container[iZone][MESH_0][FLOW_SOL][VISC_BOUND_TERM],
-//		                  config_container[iZone], U_averaged[0], U_averaged[1], val_marker);
 
   /*--- Free locally memory deallocation ---*/
 
