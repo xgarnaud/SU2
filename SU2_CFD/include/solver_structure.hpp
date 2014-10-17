@@ -743,8 +743,7 @@ public:
 	 * \param[in] solver_container - Container vector with all the solutions.
 	 * \param[in] solver - Description of the numerical method.
 	 * \param[in] config - Definition of the particular problem.
-	 * \param[in] val_U_i - internal averaged state (e.g. stator outlet).
-	 * \param[in] val_U_e - intermediate averaged state (e.g. rotor outlet).
+	 * \param[in] rotation_vel - Rotational speed.
 	 * \param[in] val_marker - Surface marker where the boundary condition is applied.
 	 */
 	virtual void BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_container,
@@ -913,9 +912,10 @@ public:
 	 * \brief A virtual member.
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] solver_container - Container vector with all the solutions.
+	 * \param[in] rotational velocity
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	virtual void Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker);
+	virtual void Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, double rotation_vel, unsigned short val_Marker);
 
 	/*!
 	 * \brief A virtual member.
@@ -2582,6 +2582,7 @@ public:
 	 * \param[in] solver_container - Container vector with all the solutions.
 	 * \param[in] solver - Description of the numerical method.
 	 * \param[in] config - Definition of the particular problem.
+	 * \param[in] rotation_vel - Rotational speed.
 	 * \param[in] val_marker - Surface marker where the boundary condition is applied.
 	 */
 	void BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_container,
@@ -2710,7 +2711,7 @@ public:
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	void Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker);
+	void Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, double rotation_vel, unsigned short val_Marker);
 
 	/*!
 	 * \brief A virtual member.

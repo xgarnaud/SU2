@@ -4252,7 +4252,7 @@ void CEulerSolver::Inviscid_Forces(CGeometry *geometry, CConfig *config) {
 
 }
 
-void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker) {
+void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, double rotation_vel, unsigned short val_Marker) {
 
   unsigned long iVertex, iPoint;
   unsigned short iDim, iVar, iMarker, Boundary, Monitoring, iMarker_Monitoring;
@@ -4382,24 +4382,13 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 			  AveragedFlux[iMarker][3] = TotalMomtZFlux[iMarker]/TotalArea;
 			  AveragedFlux[iMarker][4] = TotalEnergyFlux[iMarker]/TotalArea;
 			  double val_init_pressure = TotalAreaPressure/TotalArea;
+
 			  MixedOut_Average (val_init_pressure, AveragedFlux[iMarker], UnitNormal, &AveragedPressure[iMarker], &AveragedDensity[iMarker]);
 			  FluidModel->SetTDState_Prho(AveragedPressure[iMarker], AveragedDensity[iMarker]);
 			  AveragedVelocity[iMarker][0] = ( AveragedFlux[iMarker][1] - AveragedPressure[iMarker]*UnitNormal[0] ) / AveragedFlux[iMarker][0];
 			  AveragedVelocity[iMarker][1] = ( AveragedFlux[iMarker][2] - AveragedPressure[iMarker]*UnitNormal[1] ) / AveragedFlux[iMarker][0];
 			  AveragedVelocity[iMarker][2] = ( AveragedFlux[iMarker][3] - AveragedPressure[iMarker]*UnitNormal[2] ) / AveragedFlux[iMarker][0];
               AveragedEnthalpy[iMarker] = FluidModel->GetStaticEnergy() + AveragedPressure[iMarker]/AveragedDensity[iMarker];
-
-              /*--- averaged conservative state ---*/
-              AveragedVelocity2 = 0.0;
-			  for (iDim = 0; iDim < nDim; iDim++) {
-				  AveragedVelocity2 += AveragedVelocity[iMarker][iDim]*AveragedVelocity[iMarker][iDim];
-			  }
-
-              U_Averaged[iMarker][0] = AveragedDensity[iMarker];
-              U_Averaged[iMarker][1] = AveragedDensity[iMarker]*AveragedVelocity[iMarker][0];
-              U_Averaged[iMarker][2] = AveragedDensity[iMarker]*AveragedVelocity[iMarker][1];
-              U_Averaged[iMarker][3] = AveragedDensity[iMarker]*AveragedVelocity[iMarker][2];
-              U_Averaged[iMarker][4] = AveragedDensity[iMarker]* ( FluidModel->GetStaticEnergy() + 0.5*AveragedVelocity2 );
 
 		  }
 
@@ -6722,7 +6711,6 @@ void CEulerSolver::BC_Riemann(CGeometry *geometry, CSolver **solver_container,
 
         }
 
-
          /*--- Compute P (matrix of right eigenvectors) ---*/
         conv_numerics->GetPMatrix(&Density_i, Velocity_i, &SoundSpeed_i, &Enthalpy_i, &Chi_i, &Kappa_i, UnitNormal, P_Tensor);
 
@@ -6737,7 +6725,7 @@ void CEulerSolver::BC_Riemann(CGeometry *geometry, CSolver **solver_container,
 
         u_e[0] = Density_e;
         for (iDim = 0; iDim < nDim; iDim++)
-          u_e[iDim+1] = Velocity_e[iDim]*Density_e;
+        	u_e[iDim+1] = Velocity_e[iDim]*Density_e;
         u_e[nVar-1] = Energy_e*Density_e;
 
         u_i[0] = Density_i;
@@ -6974,7 +6962,8 @@ void CEulerSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_conta
   double P_Total, T_Total, P_static, T_static, Rho_static, *Mach, *Flow_Dir, Area, UnitNormal[3];
 
   double *Velocity_b, Velocity2_b, Enthalpy_b, Energy_b, StaticEnergy_b, Density_b, Kappa_b, Chi_b, Pressure_b, Temperature_b;
-  double *Velocity_e, Velocity2_e, VelMag_e, Enthalpy_e, Entropy_e, Energy_e = 0.0, StaticEnthalpy_e, StaticEnergy_e, Density_e = 0.0, Pressure_e;
+  double *AveVelocity_e, AveVelocity2_e, AveEnthalpy_e, AveEntropy_e, AveEnergy_e = 0.0, AveStaticEnthalpy_e, AveStaticEnergy_e, AveDensity_e = 0.0, AvePressure_e;
+  double *AveVelocity_i, AveVelocity2_i, AveEnthalpy_i, AveEnergy_i, AveStaticEnergy_i, AveDensity_i, AveKappa_i, AveChi_i, AvePressure_i, AveSoundSpeed_i;
   double *Velocity_i, Velocity2_i, Enthalpy_i, Energy_i, StaticEnergy_i, Density_i, Kappa_i, Chi_i, Pressure_i, SoundSpeed_i;
   double ProjGridVel, ProjVelocity_i, ProjVelocity_b;
   double **P_Tensor, **invP_Tensor, *Lambda_i, **Jacobian_b, **DubDu, *dw, *u_e, *u_i, *u_b;
@@ -6996,7 +6985,8 @@ void CEulerSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_conta
 
   Velocity_i = new double[nDim];
   Velocity_b = new double[nDim];
-  Velocity_e = new double[nDim];
+  AveVelocity_i = new double[nDim];
+  AveVelocity_e = new double[nDim];
 
   Lambda_i = new double[nVar];
   u_i = new double[nVar];
@@ -7040,19 +7030,19 @@ void CEulerSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_conta
             UnitNormal[iDim] = Normal[iDim]/Area;
 
         /*--- Retrieve solution at this boundary node ---*/
-        V_domain = node[iPoint]->GetPrimitive();  /// no longer necessary
+        V_domain = node[iPoint]->GetPrimitive();  /// no longer necessary ???
 
         /* --- Compute the internal state u_i --- */
         Velocity2_i = 0;
         for(iDim=0; iDim < nDim; iDim++)
         {
-            Velocity_i[iDim] = Ui_Averaged[val_marker][iDim+1]/ Ui_Averaged[val_marker][0];
+            Velocity_i[iDim] = node[iPoint]->GetVelocity(iDim);
             Velocity2_i += Velocity_i[iDim]*Velocity_i[iDim];
         }
 
-        Density_i = Ui_Averaged[val_marker][0];
+        Density_i = node[iPoint]->GetDensity();
 
-        Energy_i = Ui_Averaged[val_marker][nVar-1]/ Ui_Averaged[val_marker][0];
+        Energy_i = node[iPoint]->GetEnergy();
         StaticEnergy_i = Energy_i - 0.5*Velocity2_i;
 
         FluidModel->SetTDState_rhoe(Density_i, StaticEnergy_i);
@@ -7069,25 +7059,52 @@ void CEulerSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_conta
         for (iDim = 0; iDim < nDim; iDim++)
           ProjVelocity_i += Velocity_i[iDim]*UnitNormal[iDim];
 
-        /* --- Compute the intermediate state u_e --- */
-        Velocity2_e = 0;
-        for(iDim=0; iDim < nDim; iDim++)
-        {
-        	Velocity_e[iDim] = Ue_Averaged[val_marker][iDim+1]/ Ue_Averaged[val_marker][0];
-            Velocity2_e += Velocity_e[iDim]*Velocity_e[iDim];
-        }
-
-        Density_e = Ue_Averaged[val_marker][0];
-
-        Energy_e = Ue_Averaged[val_marker][nVar-1]/ Ue_Averaged[val_marker][0];
-        StaticEnergy_e = Energy_e - 0.5*Velocity2_e;
-
-        FluidModel->SetTDState_rhoe(Density_e, StaticEnergy_e);
-
-        if (tkeNeeded) Energy_e += GetTke_Inf();
-
-        Pressure_e = FluidModel->GetPressure();
-        Enthalpy_e = Energy_e + Pressure_e/Density_e;
+        /* --- Compute the averaged internal state U_i --- */
+//        AveVelocity2_i = 0;
+//        for(iDim=0; iDim < nDim; iDim++)
+//        {
+//        	AveVelocity_i[iDim] = Ui_Averaged[val_marker][iDim+1]/ Ui_Averaged[val_marker][0];
+//        	AveVelocity2_i += AveVelocity_i[iDim]*AveVelocity_i[iDim];
+//        }
+//
+//        AveDensity_i = Ui_Averaged[val_marker][0];
+//
+//        AveEnergy_i = Ui_Averaged[val_marker][nVar-1]/ Ui_Averaged[val_marker][0];
+//        AveStaticEnergy_i = AveEnergy_i - 0.5*AveVelocity2_i;
+//
+//        FluidModel->SetTDState_rhoe(AveDensity_i, AveStaticEnergy_i);
+//
+//        AvePressure_i = FluidModel->GetPressure();
+//        AveEnthalpy_i = AveEnergy_i + AvePressure_i/AveDensity_i;
+//
+//        AveSoundSpeed_i = FluidModel->GetSoundSpeed();
+//
+//        AveKappa_i = FluidModel->GetdPde_rho() / AveDensity_i;
+//        AveChi_i = FluidModel->GetdPdrho_e() - AveKappa_i * AveStaticEnergy_i;
+//
+//        ProjVelocity_i = 0.0;
+//        for (iDim = 0; iDim < nDim; iDim++)
+//          ProjVelocity_i += Velocity_i[iDim]*UnitNormal[iDim];
+//
+//        /* --- Compute the averaged intermediate state U_e --- */
+//        AveVelocity2_e = 0;
+//        for(iDim=0; iDim < nDim; iDim++)
+//        {
+//        	AveVelocity_e[iDim] = Ue_Averaged[val_marker][iDim+1]/ Ue_Averaged[val_marker][0];
+//        	AveVelocity2_e += AveVelocity_e[iDim]*AveVelocity_e[iDim];
+//        }
+//
+//        AveDensity_e = Ue_Averaged[val_marker][0];
+//
+//        AveEnergy_e = Ue_Averaged[val_marker][nVar-1]/ Ue_Averaged[val_marker][0];
+//        AveStaticEnergy_e = AveEnergy_e - 0.5*AveVelocity2_e;
+//
+//        FluidModel->SetTDState_rhoe(AveDensity_e, AveStaticEnergy_e);
+//
+////        if (tkeNeeded) AveEnergy_e += GetTke_Inf();
+//
+//        AvePressure_e = FluidModel->GetPressure();
+//        AveEnthalpy_e = AveEnergy_e + AvePressure_e/AveDensity_e;
 
          /*--- Compute P (matrix of right eigenvectors) ---*/
         conv_numerics->GetPMatrix(&Density_i, Velocity_i, &SoundSpeed_i, &Enthalpy_i, &Chi_i, &Kappa_i, UnitNormal, P_Tensor);
@@ -7116,6 +7133,34 @@ void CEulerSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_conta
 
         }
 
+//        cout << config->GetKind_Data_Riemann(Marker_Tag) << endl;
+//        getchar();
+
+        /*--- Compute the boundary state u_b using characteristics ---*/
+//        for (iVar = 0; iVar < nVar; iVar++)
+//        {
+//            u_b[iVar] = u_i[iVar];
+//
+//            switch(config->GetKind_Data_Riemann(Marker_Tag))
+//            {
+//        		case TOTAL_CONDITIONS_PT:
+//    	        	dw[nVar-1] = 0.0;
+//    	        	break;
+//        		case STATIC_PRESSURE:
+//        	        for (iDim = 0; iDim < nDim; iDim++) {
+//        	        	dw[iDim] = 0.0;
+//        	        }
+//    	        	dw[nVar-2] = 0.0;
+//        			break;
+//            }
+//
+//            for (jVar = 0; jVar < nVar; jVar++)
+//            {
+//            	u_b[iVar] += P_Tensor[iVar][jVar]*Lambda_i[jVar]*dw[jVar];
+//            }
+//        }
+
+//       ORIGINAL VERSION
         /*--- Compute the boundary state u_b using characteristics ---*/
         for (iVar = 0; iVar < nVar; iVar++)
         {
@@ -7126,7 +7171,6 @@ void CEulerSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_conta
                 if(Lambda_i[jVar] < 0)
                 {
                     u_b[iVar] += P_Tensor[iVar][jVar]*dw[jVar];
-
                 }
             }
         }
@@ -7300,7 +7344,8 @@ void CEulerSolver::BC_Mixing_Riemann(CGeometry *geometry, CSolver **solver_conta
 
   /*--- Free locally allocated memory ---*/
   delete [] Normal;
-  delete [] Velocity_e;
+  delete [] AveVelocity_i;
+  delete [] AveVelocity_e;
   delete [] Velocity_b;
   delete [] Velocity_i;
 

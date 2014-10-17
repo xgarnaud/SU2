@@ -64,7 +64,7 @@ void MeanFlowIteration(COutput *output, CIntegration ***integration_container, C
 		}
   	}
 
-    /*--- Apply the Mixing Plane to all mixing zones before proceeding with the calculation ---*/
+    /*--- Apply the Mixing Plane boundary condition before looping on the single zones ---*/
 	for (iZone = 0; iZone < nZone-1; iZone++) {
 		SetMixingPlane(geometry_container, solver_container, numerics_container, config_container, nZone, (iZone)%nZone);
 	}
@@ -1734,6 +1734,8 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
   bool gravity[nZone];
   bool tkeNeeded[nZone];
 
+  double rotation_vel;
+
   unsigned short nDim = geometry_container[ZONE_0][MESH_0]->GetnDim();
   unsigned short nVar = solver_container[ZONE_0][MESH_0][FLOW_SOL]->GetnVar();
 
@@ -1776,11 +1778,16 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
 
 		  	  if ( nDim == 2 ) {
 		  		  solver_container[jZone][MESH_0][FLOW_SOL]->Mixing_Process(geometry_container[jZone][MESH_0], solver_container[jZone][MESH_0],
-					  	  	  	  	  	  	  	  	  	  	  	  	  config_container[jZone], val_Marker);
+					  	  	  	  	  	  	  	  	  	  	  	  	  config_container[jZone], rotation_vel, val_Marker);
 //		  		  cout << " Averaged Pressure: " << solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedPressure(val_Marker) << endl;
-		  		  solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedConservatives(val_Marker,U[jZone]);
+//		  		  solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedConservatives(val_Marker,U[jZone]);
 		  		  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedConservatives(val_Marker);
 		  		  solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedConservatives(val_Marker,U[jZone]);
+//		  		  cout << " Conservative 0: " << U[jZone][0] << endl;
+//		  		  cout << " Conservative 1: " << U[jZone][1] << endl;
+//		  		  cout << " Conservative 2: " << U[jZone][2] << endl;
+//		  		  cout << " Conservative 3: " << U[jZone][3] << endl;
+//		  		  getchar();
 		  	  }
 		  	  else {
 		  		  cout << "!!! Error: Mixing Plane interface not yet supported in 3-D. !!!" << endl;
@@ -1824,6 +1831,12 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
   }
 
   /*--- Free locally memory deallocation ---*/
+
+  for (unsigned short jZone = 0; jZone < nZone; jZone++)
+  {
+      delete [] U[jZone];
+  }
+  delete [] U;
 
 }
 
