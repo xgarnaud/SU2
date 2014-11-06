@@ -1757,8 +1757,8 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
 	  gravity[jZone] = (config_container[jZone]->GetGravityForce());
 	  tkeNeeded[jZone] = ((config_container[jZone]->GetKind_Solver() == RANS) && (config_container[jZone]->GetKind_Turb_Model() == SST));
 
-//	  cout << "nZone : " << nZone;
-//	  cout << " iZone : " << jZone << endl;
+	  cout << "nZone : " << nZone;
+	  cout << " iZone : " << jZone << endl;
 
 	  /*--- Mixed-out averaging for the two sides of the mixing interface ---*/
 
@@ -1772,6 +1772,7 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
 //		  cout << " iMarker : " << iMarker;
 //		  cout << "  Marker_Tag : " << Marker_Tag;
 //		  cout << "  Boundary_Type : " << Boundary;
+//		  cout << "  Kind Data Riemann : " << config_container[jZone]->GetKind_Data_Riemann(Marker_Tag);
 //		  cout << "  Monitoring: " << Monitoring << endl;
 		  if ( Monitoring == YES ) {
 			  val_Marker = iMarker;
@@ -1800,7 +1801,9 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
 
   }
 
-  /*--- Assignment of the averaged quantities as left/right averaged states of both edges/faces of the mixing plane ---*/
+//  getchar();
+
+  /*--- Assignment of the averaged quantities (left/right averaged states) to both edges/faces of the mixing plane ---*/
 
   int iter = 0;
 
