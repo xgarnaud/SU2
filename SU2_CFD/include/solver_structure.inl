@@ -487,6 +487,12 @@ inline void CSolver::Set_MPI_MaxEigenvalue(CGeometry *geometry, CConfig *config)
 
 inline void CSolver::Inviscid_Forces(CGeometry *geometry, CConfig *config) { }
 
+inline void CSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker){ }
+
+inline double *CSolver::GetAveragedFlux(unsigned short val_Marker){ }
+
+inline void CSolver::SetExtAveragedFlux(unsigned short val_Marker, double* averagedExt_flux){ }
+
 inline void CSolver::Viscous_Forces(CGeometry *geometry, CConfig *config) { }
 
 inline void CSolver::Inviscid_DeltaForces(CGeometry *geometry, CSolver **solver_container, CConfig *config) { }
@@ -724,6 +730,10 @@ inline double CEulerSolver::GetAllBound_CFx_Inv() { return AllBound_CFx_Inv; }
 inline double CEulerSolver::GetAllBound_CFy_Inv() { return AllBound_CFy_Inv; }
 
 inline double CEulerSolver::GetAllBound_CFz_Inv() { return AllBound_CFz_Inv; }
+
+inline double *CEulerSolver::GetAveragedFlux(unsigned short val_Marker){return AveragedFlux[val_Marker]}
+
+inline void CEulerSolver::SetExtAveragedFlux(unsigned short val_Marker, double* averaged_ext_flux){ ExtAveragedFlux[val_Marker]}
 
 inline double CEulerSolver::GetTotal_CFreeSurface() { return Total_CFreeSurface; }
 

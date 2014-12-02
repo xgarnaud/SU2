@@ -669,11 +669,12 @@ enum BC_TYPE {
   ACTDISK_OUTLET = 36,	/*!< \brief Actuator disk outlet boundary definition. */
   ENGINE_BLEED = 37,		/*!< \brief Boundary engine bleed. */
   SEND_RECEIVE = 99,		/*!< \brief Boundary send-receive definition. */
-  RIEMANN_BOUNDARY= 100   /*!< \brief Riemann Boundary definition. */
+  RIEMANN_BOUNDARY= 100,   /*!< \brief Riemann Boundary definition. */
+  MIXING_PLANE= 101   /*!< \brief Mixing Plane Boundary definition. */
 };
 
 /*!
- * \brief types inlet boundary treatments
+ * \brief types Riemann boundary treatments
  */
 enum RIEMANN_TYPE {
   TOTAL_CONDITIONS_PT = 1,		/*!< \brief User specifies total pressure, total temperature, and flow direction. */
@@ -702,6 +703,18 @@ enum INLET_TYPE {
 static const map<string, INLET_TYPE> Inlet_Map = CCreateMap<string, INLET_TYPE>
 ("TOTAL_CONDITIONS", TOTAL_CONDITIONS)
 ("MASS_FLOW", MASS_FLOW);
+
+/*!
+ * \brief types Mixing Plane boundary treatments
+ */
+enum MIXING_PLANE_TYPE {
+  MIXING_INLET = 1,		/*!< \brief User specifies Inlet type of Mixing Plane Boundary. */
+  MIXING_OUTLET = 2           /*!< \brief User specifies Outlet type of Mixing Plane Boundary. */
+};
+static const map<string, INLET_TYPE> Inlet_Map = CCreateMap<string, INLET_TYPE>
+("MIXING_INLET", MIXING_INLET)
+("MIXING_OUTLET", MIXING_OUTLET);
+
 
 /*!
  * \brief types of geometric entities based on VTK nomenclature

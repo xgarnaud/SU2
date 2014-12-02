@@ -897,6 +897,29 @@ public:
 	virtual void Inviscid_Forces(CGeometry *geometry, CConfig *config);
 
 	/*!
+	 * \brief Averaged fluxes at the boundary.
+	 * \param[in] geometry - Geometrical definition of the problem.
+	 * \param[in] solver - Container vector with all the solutions.
+	 * \param[in] config - Definition of the particular problem.
+	 * \param[in] val_Marker - Boundary marker where the mixing process is computed.
+	 */
+
+	 virtual void Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker);
+
+	 /*!
+   	  * \brief return the avaraged fluxes
+	  * \param[in] val_Marker - Boundary marker where the mixing process is computed.
+	  */
+	 virtual double *GetAveragedFlux(unsigned short val_Marker);
+
+	 /*!
+	  * \brief return the avaraged fluxes
+	  * \param[in] val_Marker - Boundary marker where the mixing process is computed.
+	  * \param[in] averaged_ext_flux- averaged flux from the other adjacent zone.
+	  */
+	void SetExtAveragedFlux(unsigned short val_Marker, double* averaged_ext_flux);
+
+	/*!
 	 * \brief A virtual member.
 	 * \param[in] geometry - Geometrical definition of the problem.
 	 * \param[in] solver_container - Container vector with all the solutions.
@@ -2188,6 +2211,15 @@ protected:
   Bleed_Pressure_Total,	/*!< \brief Fan face pressure for each boundary. */
   Bleed_Temperature_Total,	/*!< \brief Fan face mach number for each boundary. */
 	InverseDesign;	/*!< \brief Inverse design functional for each boundary. */
+
+
+
+  double
+      *TotalMassFlux,  /*!< \brief Mass flux. */
+      **TotalMomFlux,  /*!< \brief Total momentum flux. */
+      *TotalEnergyFlux,  /*!< \brief Total energy flux. */
+	  **AveragedFlux,  /*!< \brief Averaged flux. */
+	  **ExtAveragedFlux; /*!< \brief Averaged flux. */
 	
   double
   AllBound_CDrag_Inv,	/*!< \brief Total drag coefficient (inviscid contribution) for all the boundaries. */
@@ -2819,6 +2851,29 @@ public:
 	 * \param[in] config - Definition of the particular problem.
 	 */
 	void Inviscid_Forces(CGeometry *geometry, CConfig *config);
+
+	/*!
+	 * \brief Update the solution using an implicit Euler scheme.
+	 * \param[in] geometry - Geometrical definition of the problem.
+	 * \param[in] solver - Container vector with all the solutions.
+	 * \param[in] config - Definition of the particular problem.
+	 * \param[in] val_Marker - Boundary marker where the mixing process is computed.
+	 */
+
+	void Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker);
+
+	 /*!
+  	  * \brief return the avaraged fluxes
+	  * \param[in] val_Marker - Boundary marker where the mixing process is computed.
+	  */
+	double *GetAveragedFlux(unsigned short val_Marker);
+
+	/*!
+     * \brief return the avaraged fluxes
+     * \param[in] val_Marker - Boundary marker where the mixing process is computed.
+     * \param[in] averaged_ext_flux- averaged flux from the other adjacent zone.
+     */
+	void SetExtAveragedFlux(unsigned short val_Marker, double* averaged_ext_flux);
 
 	/*!
 	 * \brief Provide the non dimensional lift coefficient (inviscid contribution).

@@ -63,7 +63,13 @@ void MeanFlowIteration(COutput *output, CIntegration ***integration_container, C
       SetWind_GustField(config_container[iZone],geometry_container[iZone],solver_container[iZone]);
     }
 	}
-  
+
+    /*--- Apply the Mixing Plane boundary condition before looping on the single zones ---*/
+//TODO Mixing-Plane insert an if statement for mixing plane BC
+	for (iZone = 0; iZone < nZone-1; iZone++) {
+//		SetMixingPlane(geometry_container, solver_container, numerics_container, config_container, nZone, iZone);
+		SetMixingPlane(geometry_container, solver_container, config_container, iZone);
+	}
 	for (iZone = 0; iZone < nZone; iZone++) {
     
 		/*--- Set the value of the internal iteration ---*/
@@ -1725,4 +1731,172 @@ void SetTimeSpectral_Velocities(CGeometry ***geometry_container,
 	}
 	delete [] coords;
   
+}
+
+
+
+void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_container, CConfig **config_container, unsigned short iZone) {
+
+//  unsigned short iDim, iVar;
+//  unsigned long iVertex, iPoint;
+//  unsigned short val_Marker = 100;
+//  unsigned short Boundary, Monitoring;
+//
+//  bool implicit[nZone];
+//  bool grid_movement[nZone];
+//  string Marker_Tag;
+//  bool viscous[nZone];
+//  bool gravity[nZone];
+//  bool tkeNeeded[nZone];
+//
+//  double rotation_vel;
+//
+//  unsigned short nDim = geometry_container[ZONE_0][MESH_0]->GetnDim();
+//  unsigned short nVar = solver_container[ZONE_0][MESH_0][FLOW_SOL]->GetnVar();
+//
+//  double **U = new double* [nZone];
+//  for (unsigned short jZone = 0; jZone < nZone; jZone++) {
+//	  U[jZone] = new double [nVar];
+//	  for (iVar = 0; iVar < nVar; iVar++) {
+//		  U[jZone][iVar] = 0.0;
+//	  }
+//  }
+//
+//  /*--- Loop over the grid zones of the finest mesh ---*/
+//
+//  for (unsigned short jZone = iZone; jZone < nZone+iZone; jZone++ ) {
+//
+////	  implicit[jZone] = (config_container[jZone]->GetKind_TimeIntScheme_Flow() == EULER_IMPLICIT);
+////	  grid_movement[jZone] = config_container[jZone]->GetGrid_Movement();
+////	  viscous[jZone] = config_container[jZone]->GetViscous();
+////	  gravity[jZone] = (config_container[jZone]->GetGravityForce());
+////	  tkeNeeded[jZone] = ((config_container[jZone]->GetKind_Solver() == RANS) && (config_container[jZone]->GetKind_Turb_Model() == SST));
+//
+//	  cout << "nZone : " << nZone;
+//	  cout << " iZone : " << jZone << endl;
+//
+//	  /*--- Mixed-out averaging for the two sides of the mixing interface ---*/
+//
+//	  /// N.B. backflow capability not currently supported
+//
+//	  int nMarker = config_container[jZone]->GetnMarker_All();
+//	  for (int iMarker = 0; iMarker < nMarker; iMarker++) {
+//		  Boundary   = config_container[jZone]->GetMarker_All_KindBC(iMarker);
+//		  Monitoring = config_container[jZone]->GetMarker_All_Monitoring(iMarker);
+//		  Marker_Tag = config_container[jZone]->GetMarker_All_TagBound(iMarker);
+////		  cout << " iMarker : " << iMarker;
+////		  cout << "  Marker_Tag : " << Marker_Tag;
+////		  cout << "  Boundary_Type : " << Boundary;
+////		  cout << "  Kind Data Riemann : " << config_container[jZone]->GetKind_Data_Riemann(Marker_Tag);
+////		  cout << "  Monitoring: " << Monitoring << endl;
+//		  if ( Monitoring == YES ) {
+//			  val_Marker = iMarker;
+//
+//		  	  if ( nDim == 2 ) {
+//		  		  solver_container[jZone][MESH_0][FLOW_SOL]->Mixing_Process(geometry_container[jZone][MESH_0], solver_container[jZone][MESH_0],
+//					  	  	  	  	  	  	  	  	  	  	  	  	  config_container[jZone], rotation_vel, val_Marker);
+////		  		  cout << " Averaged Pressure: " << solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedPressure(val_Marker) << endl;
+////		  		  solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedConservatives(val_Marker,U[jZone]);
+//		  		  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedConservatives(val_Marker);
+//		  		  solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedConservatives(val_Marker,U[jZone]);
+////		  		  cout << " Conservative 0: " << U[jZone][0] << endl;
+////		  		  cout << " Conservative 1: " << U[jZone][1] << endl;
+////		  		  cout << " Conservative 2: " << U[jZone][2] << endl;
+////		  		  cout << " Conservative 3: " << U[jZone][3] << endl;
+////		  		  getchar();
+//		  	  }
+//		  	  else {
+//		  		  cout << "!!! Error: Mixing Plane interface not yet supported in 3-D. !!!" << endl;
+//		  		  cout << "Press any key to exit..." << endl;
+//		  		  cin.get();
+//		  		  exit(1);
+//		  	  }
+//		  }
+//	  }
+//
+//  }
+//
+////  getchar();
+//
+//  /*--- Assignment of the averaged quantities (left/right averaged states) to both edges/faces of the mixing plane ---*/
+//
+//  int iter = 0;
+//
+//  for (unsigned short jZone = iZone; jZone < nZone+iZone; jZone++ ) {
+//	  int nMarker = config_container[jZone]->GetnMarker_All();
+//
+//	  if ( iter == 0 ) {
+//		  for (int iMarker = 0; iMarker < nMarker; iMarker++) {
+//			  Monitoring = config_container[jZone]->GetMarker_All_Monitoring(iMarker);
+//			  if ( Monitoring == YES ) {
+//				  val_Marker = iMarker;
+//				  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedIntConservatives(val_Marker,U[jZone]);
+//				  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedExtConservatives(val_Marker,U[jZone+1]);
+//			  }
+//		  }
+//	  }
+//	  else {
+//		  for (int iMarker = 0; iMarker < nMarker; iMarker++) {
+//			  Monitoring = config_container[jZone]->GetMarker_All_Monitoring(iMarker);
+//			  if ( Monitoring == YES ) {
+//				  val_Marker = iMarker;
+//				  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedIntConservatives(val_Marker,U[jZone]);
+//				  solver_container[jZone][MESH_0][FLOW_SOL]->SetAveragedExtConservatives(val_Marker,U[jZone-1]);
+//			  }
+//		  }
+//	  }
+//	  iter += 1;
+//  }
+//
+//  /*--- Free locally memory deallocation ---*/
+//
+//  for (unsigned short jZone = 0; jZone < nZone; jZone++)
+//  {
+//      delete [] U[jZone];
+//  }
+//  delete [] U;
+
+	unsigned short jZone, val_Marker_inlet, val_Marker_outlet;
+	unsigned short nDim = geometry_container[ZONE_0][MESH_0]->GetnDim();
+	unsigned short nVar = solver_container[ZONE_0][MESH_0][FLOW_SOL]->GetnVar();
+	string Marker_Tag;
+	jZone = iZone;
+
+	double **averaged_flux = new double* [2];
+	for (unsigned short j = 0; j < 2; j++) {
+		averaged_flux[j] = new double [nVar];
+		for (unsigned short i = 0; i < nVar; i++) {
+			averaged_flux[j][i] = 0.0;
+		}
+	 }
+
+	for(jZone = iZone; jZone <= iZone +1; jZone++ ){
+		for (int iMarker = 0; iMarker < config_container[jZone]->GetnMarker_All(); iMarker++) {
+			if (config_container[jZone]->GetMarker_All_KindBC(iMarker) == MIXING_PLANE) {
+				Marker_Tag   = config_container[jZone]->GetMarker_All_TagBound(iMarker);
+				if (jZone == iZone){
+					if (config->GetKind_Mixing_Bound(Marker_Tag) == MIXING_OUTLET ){
+						solver_container[jZone][MESH_0][FLOW_SOL]->Mixing_Process(geometry_container[jZone][MESH_0], solver_container[jZone][MESH_0],
+							  	  	  	  	  	  	  	  	  	  	  	  	  config_container[jZone], iMarker);
+						val_Marker_outlet = iMarker;
+				    }
+				}else{
+					if (config->GetKind_Mixing_Bound(Marker_Tag) == MIXING_INLET ){
+						solver_container[jZone][MESH_0][FLOW_SOL]->Mixing_Process(geometry_container[jZone][MESH_0], solver_container[jZone][MESH_0],
+												  	  	  	  	  	  	  	  	  	  	  	  	  config_container[jZone], iMarker);
+						val_Marker_inlet = iMarker;
+					}
+				}
+
+			}
+		}
+	}
+
+	  /*--- Assignment of the external averaged quantities (left/right averaged states) to both edges/faces of the mixing plane ---*/
+	averaged_flux[0] = solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedFlux(val_Marker_outlet);
+	solver_container[iZone+1][MESH_0][FLOW_SOL]->SetExtAveragedFlux(val_Marker_inlet, averaged_flux[0]);
+	averaged_flux[1] = solver_container[jZone][MESH_0][FLOW_SOL]->GetAveragedFlux(val_Marker_inlet);
+	solver_container[iZone][MESH_0][FLOW_SOL]->SetExtAveragedFlux(val_Marker_outlet, averaged_flux[1]);
+
+
 }

@@ -262,3 +262,17 @@ void ComputeTimeSpectral_Operator(double **D, double period, unsigned short nZon
  */
 void SetTimeSpectral_Velocities(CGeometry ***geometry_container,
 		CConfig **config_container, unsigned short nZone);
+
+
+
+
+/*!
+ * \brief Computation of Mixing Plane Fluxes
+ * \author M.Pini, S. Vitale
+ * \param[in] geometry_container - Geometrical definition of the problem.
+ * \param[in] solver_container - Container vector with all the solutions.
+ * \param[in] config_container - Definition of the particular problem.
+ * \param[in] iZone - Current zone number.
+ */
+void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_container, CConfig **config_container,
+		            unsigned short iZone);
