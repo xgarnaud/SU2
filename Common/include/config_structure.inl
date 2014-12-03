@@ -758,6 +758,8 @@ inline unsigned short CConfig::GetKind_Upwind_AdjTurb(void) { return Kind_Upwind
 
 inline unsigned short CConfig::GetKind_Inlet(void) { return Kind_Inlet; }
 
+inline bool CConfig::GetBoolMixingPlane(void) { return (nMarker_MixingPlane !=0);}
+
 inline unsigned short CConfig::GetnSections(void) { return nSections; }
 
 inline unsigned short CConfig::GetnVolSections(void) { return nVolSections; }

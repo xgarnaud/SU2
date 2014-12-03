@@ -693,6 +693,21 @@ static const map<string, RIEMANN_TYPE> Riemann_Map = CCreateMap<string, RIEMANN_
 ("STATIC_SUPERSONIC_INFLOW_PT", STATIC_SUPERSONIC_INFLOW_PT)
 ("STATIC_SUPERSONIC_INFLOW_PD", STATIC_SUPERSONIC_INFLOW_PD);
 
+
+/*!
+ * \brief types Riemann boundary treatments
+ */
+enum MIXING_PLANE_TYPE {
+  MIXING_LOCAL = 1,		/*!< \brief User specifies total pressure, total temperature, and flow direction. */
+  MIXING_GLOBAL = 2         /*!< \brief User specifies density and velocity, and flow direction. */
+
+};
+
+static const map<string, MIXING_PLANE_TYPE> MixingPlane_Map = CCreateMap<string, MIXING_PLANE_TYPE>
+("MIXING_LOCAL", MIXING_LOCAL)
+("MIXING_GLOBAL", MIXING_GLOBAL);
+
+
 /*!
  * \brief types inlet boundary treatments
  */
@@ -704,16 +719,6 @@ static const map<string, INLET_TYPE> Inlet_Map = CCreateMap<string, INLET_TYPE>
 ("TOTAL_CONDITIONS", TOTAL_CONDITIONS)
 ("MASS_FLOW", MASS_FLOW);
 
-/*!
- * \brief types Mixing Plane boundary treatments
- */
-enum MIXING_PLANE_TYPE {
-  MIXING_INLET = 1,		/*!< \brief User specifies Inlet type of Mixing Plane Boundary. */
-  MIXING_OUTLET = 2           /*!< \brief User specifies Outlet type of Mixing Plane Boundary. */
-};
-static const map<string, INLET_TYPE> Inlet_Map = CCreateMap<string, INLET_TYPE>
-("MIXING_INLET", MIXING_INLET)
-("MIXING_OUTLET", MIXING_OUTLET);
 
 
 /*!
@@ -2107,7 +2112,7 @@ public:
       string str;
       str.append(this->name);
       str.append(": invalid option value ");
-      str.append(option_value[0]);
+      str.append(option_value[7*i + 1]);
       return str;
     }
       Tenum val = this->m[option_value[7*i + 1]];
@@ -2143,6 +2148,103 @@ public:
     this->var1 = NULL;
     this->var2 = NULL;
     this->flowdir = NULL;
+    this->size = 0; // There is no default value for list
+  }
+};
+
+
+template <class Tenum>
+class COptionMixingPlane : public COptionBase{
+
+  map<string, Tenum> m;
+  unsigned short* & field; // Reference to the feildname
+  string name; // identifier for the option
+  unsigned short & size;
+  string * & marker;
+  string * & markerAssFace;
+  unsigned short * & zone1;
+  unsigned short * & zone2;
+
+public:
+  COptionMixingPlane(string option_field_name, unsigned short & nMarker_MixingPlane, string* &  Marker_MixingPlane, unsigned short* & Kind_Data_MixingPlane,
+		  const map<string, Tenum> MixingPlane_Map, unsigned short* & Zone_MixingPlane, string* & AssFace_MixingPlane,
+		  unsigned short* & Zone_AssFace_MixingPlane) : size(nMarker_MixingPlane), marker(Marker_MixingPlane), field(Kind_Data_MixingPlane),
+		  zone1(Zone_MixingPlane), zone2(Zone_AssFace_MixingPlane), markerAssFace(AssFace_MixingPlane){
+    this->name = option_field_name;
+    this->m = MixingPlane_Map ;
+  }
+  ~COptionMixingPlane(){};
+
+  string SetValue(vector<string> option_value){
+
+    unsigned long totalVals = option_value.size();
+    if ((totalVals == 1) && (option_value[0].compare("NONE") == 0)){
+      this->size = 0;
+      this->marker = NULL;
+      this->field = 0;
+      this->zone1 = NULL;
+      this->zone2 = NULL;
+      this->markerAssFace = NULL;
+      return "";
+    }
+
+    if (totalVals % 5 != 0){
+      string newstring;
+      newstring.append(this->name);
+      newstring.append(": must have a number of entries divisible by 5");
+      this->size = 0;
+      this->marker = NULL;
+      this->zone1 = NULL;
+      this->zone2 = NULL;
+      this->markerAssFace = NULL;
+      this->field = NULL;
+      return newstring;
+    }
+
+    unsigned long nVals = totalVals / 5;
+    this->size = nVals;
+    this->marker = new string[nVals];
+    this->zone1 = new unsigned short[nVals];
+    this->zone2 = new unsigned short[nVals];
+    this->markerAssFace = new string[nVals];
+    this->field = new unsigned short[nVals];
+
+
+    for (int i = 0; i < nVals; i++){
+      this->marker[i].assign(option_value[5*i]);
+        // Check to see if the enum value is in the map
+    if (this->m.find(option_value[5*i + 1]) == m.end()){
+      string str;
+      str.append(this->name);
+      str.append(": invalid option value ");
+      str.append(option_value[5*i + 1]);
+      return str;
+    }
+      Tenum val = this->m[option_value[5*i + 1]];
+      this->field[i] = val;
+
+      istringstream ss_3rd(option_value[5*i + 2]);
+      if(!(ss_3rd >> this->zone1[i])){
+        return badValue(option_value, "MixingPlane", this->name);
+      }
+
+      this->markerAssFace[i].assign(option_value[5*i+3]);
+
+      istringstream ss_5th(option_value[5*i + 4]);
+      if (!(ss_5th >> this->zone2[i])){
+        return badValue(option_value, "MixingPlane", this->name);
+      }
+
+    }
+
+    return "";
+  }
+
+  void SetDefault(){
+    this->marker = NULL;
+    this->zone1 = NULL;
+    this->zone2 = NULL;
+    this->markerAssFace = NULL;
     this->size = 0; // There is no default value for list
   }
 };

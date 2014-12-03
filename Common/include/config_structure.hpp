@@ -139,6 +139,7 @@ private:
 	nMarker_Dirichlet_Elec,				/*!< \brief Number of interface boundary markers. */
 	nMarker_Inlet,					/*!< \brief Number of inlet flow markers. */
 	nMarker_Riemann,					/*!< \brief Number of Riemann flow markers. */
+	nMarker_MixingPlane,					/*!< \brief Number of Mixing Plane flow markers. */
 	nMarker_Supersonic_Inlet,					/*!< \brief Number of supersonic inlet flow markers. */
 	nMarker_Outlet,					/*!< \brief Number of outlet flow markers. */
 	nMarker_Out_1D,         /*!< \brief Number of outlet flow markers over which to calculate 1D outputs */
@@ -175,6 +176,8 @@ private:
 	*Marker_Dirichlet_Elec,				/*!< \brief Interface boundaries markers. */
 	*Marker_Inlet,					/*!< \brief Inlet flow markers. */
 	*Marker_Riemann,					/*!< \brief Riemann markers. */
+	*Marker_MixingPlane,					/*!< \brief MixingPlane markers. */
+	*AssFace_MixingPlane,					/*!< \brief MixingPlane markers for the associate face. */
 	*Marker_Supersonic_Inlet,					/*!< \brief Supersonic inlet flow markers. */
 	*Marker_Outlet,					/*!< \brief Outlet flow markers. */
 	*Marker_Out_1D,         /*!< \brief Outlet flow markers over which to calculate 1D output. */
@@ -351,7 +354,11 @@ private:
   unsigned short nML_Turb_Model_Extra; /*!<\brief number of strings there */
 
   unsigned short Kind_Trans_Model,			/*!< \brief Transition model definition. */
-	Kind_Inlet, *Kind_Data_Riemann;           /*!< \brief Kind of inlet boundary treatment. */
+	Kind_Inlet, 					 /*!< \brief Kind of inlet boundary treatment. */
+	*Kind_Data_Riemann,              /*!< \brief Kind of inlet/outlet Riemann boundary treatment. */
+  *Kind_Data_MixingPlane,			    /*!< \brief Kind of Mixing Plane treatment. */
+  *Zone_MixingPlane,                      /*!< \brief number of the zone. */
+  *Zone_AssFace_MixingPlane;			    /*!< \brief nember of the zone of the associated face. */
 	double Linear_Solver_Error;		/*!< \brief Min error of the linear solver for the implicit formulation. */
 	unsigned long Linear_Solver_Iter;		/*!< \brief Max iterations of the linear solver for the implicit formulation. */
 	unsigned long Linear_Solver_Restart_Frequency;   /*!< \brief Restart frequency of the linear solver for the implicit formulation. */
@@ -859,6 +866,7 @@ private:
     COptionBase* val = new COptionInlet(name, nMarker_Inlet, Marker_Inlet, Ttotal, Ptotal, FlowDir);
     option_map.insert(pair<string, COptionBase *>(name, val));
   }
+
   template <class Tenum>
   
   void addRiemannOption(const string name, unsigned short & nMarker_Riemann, string * & Marker_Riemann, unsigned short* & option_field, const map<string, Tenum> & enum_map,
@@ -868,6 +876,17 @@ private:
     COptionBase* val = new COptionRiemann<Tenum>(name, nMarker_Riemann, Marker_Riemann, option_field, enum_map, var1, var2, FlowDir);
     option_map.insert(pair<string, COptionBase *>(name, val));
   }
+
+  template <class Tenum>
+
+  void addMixingPlaneOption(const string name, unsigned short & nMarker_MixingPlane, string * & Marker_MixingPlane, unsigned short* & Kind_Data_MixingPlane, const map<string, Tenum> & MixingPlane_Map,
+		  	  	  	  	  	  unsigned short* & Zone_MixingPlane, string* & AssFace_MixingPlane, unsigned short* & Zone_AssFace_MixingPlane){
+     assert(option_map.find(name) == option_map.end());
+     all_options.insert(pair<string,bool>(name,true));
+     COptionBase* val = new COptionMixingPlane<Tenum>(name, nMarker_MixingPlane, Marker_MixingPlane, Kind_Data_MixingPlane, MixingPlane_Map,
+    		 	 	 	 	 	 	 	 	 	 Zone_MixingPlane, AssFace_MixingPlane, Zone_AssFace_MixingPlane);
+     option_map.insert(pair<string, COptionBase *>(name, val));
+   }
 
   void addExhaustOption(const string name, unsigned short & nMarker_Exhaust, string * & Marker_Exhaust,
                       double* & Ttotal, double* & Ptotal){
@@ -4706,6 +4725,42 @@ public:
 	 * \return Kind data
 	 */
 	unsigned short GetKind_Data_Riemann(string val_marker);
+
+	/*!
+	 * \brief Get Kind Data of Mixing Plane.
+	 * \param[in] val_marker - Index corresponding to the Mixing Plane boundary.
+	 * \return Kind of Mixing Plane Data.
+	 */
+	unsigned short GetKind_Data_MixingPlane(string val_marker);
+
+	/*!
+	 * \brief Get Mixing Plane boundary zone.
+	 * \param[in] val_marker - Index corresponding to the Mixing Plane boundary.
+	 * \return Mixing Plane boundary zone.
+	 */
+	unsigned short GetZone_MixingPlane(string val_marker);
+
+	/*!
+	 * \brief Get Mixing Plane zone of the other boundary associated .
+	 * \param[in] val_marker - Index corresponding to the Mixing Plane boundary.
+	 * \return Mixing Plane zone of the other boundary associated.
+	 */
+	unsigned short GetZone_AssFace_MixingPlane(string val_marker);
+
+	/*!
+	 * \brief Get Mixing Plane associated boundary.
+	 * \param[in] val_marker - Index corresponding to the Mixing Plane boundary.
+	 * \return Mixing Plane Marker of the other boundary associated.
+	 */
+	string GetMarker_AssFace_MixingPlane(string val_marker);
+
+
+	/*!
+	 * \brief Check if any Mixing Plane boundary exists.
+	 * \param[in] val_marker - Index corresponding to the Mixing Plane boundary.
+	 * \return true if a Mixing Plane boundary exists otherwise false.
+	 */
+	bool GetBoolMixingPlane(void);
 
 	/*!
 	 * \brief Get the wall temperature (static) at an isothermal boundary.

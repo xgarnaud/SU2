@@ -447,8 +447,13 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
    a unit vector. \ingroup Config*/
   addInletOption("MARKER_INLET", nMarker_Inlet, Marker_Inlet, Inlet_Ttotal, Inlet_Ptotal, Inlet_FlowDir);
 
+  /*!\par MARKER_RIEMANN
   /* DESCRIPTION: Riemann boundary marker(s) with the following formats, a unit vector. */
   addRiemannOption("MARKER_RIEMANN", nMarker_Riemann, Marker_Riemann, Kind_Data_Riemann, Riemann_Map, Riemann_Var1, Riemann_Var2, Riemann_FlowDir);
+
+  /*!\par MARKER_MIXING_PLANE
+  /* DESCRIPTION: Riemann boundary marker(s) with the following formats, a unit vector. */
+  addMixingPlaneOption("MARKER_MIXING_PLANE", nMarker_MixingPlane, Marker_MixingPlane, Kind_Data_MixingPlane, MixingPlane_Map, Zone_MixingPlane, AssFace_MixingPlane, Zone_AssFace_MixingPlane);
   /*!\par MARKER_SUPERSONIC_INLET
    *  DESCRIPTION: Supersonic inlet boundary marker(s) \n   Format: (inlet marker, temperature, static pressure, velocity_x,   velocity_y, velocity_z, ... ), i.e. primitive variables specified. \ingroup Config*/
   addInletOption("MARKER_SUPERSONIC_INLET", nMarker_Supersonic_Inlet, Marker_Supersonic_Inlet,
@@ -2842,8 +2847,8 @@ void CConfig::SetMarkers(unsigned short val_software, unsigned short val_izone) 
   /*--- Boundary (marker) treatment ---*/
   nMarker_All = nMarker_Euler + nMarker_FarField + nMarker_SymWall +
   nMarker_PerBound + nMarker_NearFieldBound + nMarker_Supersonic_Inlet +
-  nMarker_InterfaceBound + nMarker_Dirichlet + nMarker_Neumann + nMarker_Riemann+ nMarker_Inlet +
-  nMarker_Outlet + nMarker_Isothermal + nMarker_IsothermalCatalytic +
+  nMarker_InterfaceBound + nMarker_Dirichlet + nMarker_Neumann + nMarker_Riemann+ nMarker_MixingPlane+
+  nMarker_Inlet + nMarker_Outlet + nMarker_Isothermal + nMarker_IsothermalCatalytic +
   nMarker_IsothermalNonCatalytic + nMarker_HeatFlux + nMarker_HeatFluxCatalytic +
   nMarker_HeatFluxNonCatalytic + nMarker_EngineInflow + nMarker_EngineBleed + nMarker_EngineExhaust +
   nMarker_Dirichlet_Elec + nMarker_Displacement + nMarker_Load +
@@ -2865,7 +2870,7 @@ void CConfig::SetMarkers(unsigned short val_software, unsigned short val_izone) 
   unsigned short iMarker_All, iMarker_Config, iMarker_Euler, iMarker_Custom,
   iMarker_FarField, iMarker_SymWall, iMarker_Pressure, iMarker_PerBound,
   iMarker_NearFieldBound, iMarker_InterfaceBound, iMarker_Dirichlet,
-  iMarker_Inlet, iMarker_Riemann, iMarker_Outlet, iMarker_Isothermal, iMarker_IsothermalCatalytic,
+  iMarker_Inlet, iMarker_Riemann, iMarker_MixingPlane, iMarker_Outlet, iMarker_Isothermal, iMarker_IsothermalCatalytic,
   iMarker_IsothermalNonCatalytic, iMarker_HeatFlux, iMarker_HeatFluxNoncatalytic,
   iMarker_HeatFluxCatalytic, iMarker_EngineInflow, iMarker_EngineBleed, iMarker_EngineExhaust,
   iMarker_Displacement, iMarker_Load, iMarker_FlowLoad, iMarker_Neumann,
@@ -2890,7 +2895,7 @@ void CConfig::SetMarkers(unsigned short val_software, unsigned short val_izone) 
   nMarker_Config = nMarker_Euler + nMarker_FarField + nMarker_SymWall +
   nMarker_Pressure + nMarker_PerBound + nMarker_NearFieldBound +
   nMarker_InterfaceBound + nMarker_Dirichlet + nMarker_Neumann + nMarker_Inlet + nMarker_Riemann +
-  nMarker_Outlet + nMarker_Isothermal + nMarker_IsothermalNonCatalytic +
+  nMarker_MixingPlane + nMarker_Outlet + nMarker_Isothermal + nMarker_IsothermalNonCatalytic +
   nMarker_IsothermalCatalytic + nMarker_HeatFlux + nMarker_HeatFluxNonCatalytic +
   nMarker_HeatFluxCatalytic + nMarker_EngineInflow + nMarker_EngineBleed + nMarker_EngineExhaust +
   nMarker_Supersonic_Inlet + nMarker_Displacement + nMarker_Load +
@@ -2992,6 +2997,12 @@ void CConfig::SetMarkers(unsigned short val_software, unsigned short val_izone) 
   for (iMarker_Riemann = 0; iMarker_Riemann < nMarker_Riemann; iMarker_Riemann++) {
     Marker_CfgFile_TagBound[iMarker_Config] = Marker_Riemann[iMarker_Riemann];
     Marker_CfgFile_KindBC[iMarker_Config] = RIEMANN_BOUNDARY;
+    iMarker_Config++;
+  }
+
+  for (iMarker_MixingPlane = 0; iMarker_MixingPlane < nMarker_MixingPlane; iMarker_MixingPlane++) {
+    Marker_CfgFile_TagBound[iMarker_Config] = Marker_MixingPlane[iMarker_MixingPlane];
+    Marker_CfgFile_KindBC[iMarker_Config] = MIXING_PLANE;
     iMarker_Config++;
   }
 
@@ -3159,8 +3170,8 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 
   unsigned short iMarker_Euler, iMarker_Custom, iMarker_FarField,
   iMarker_SymWall, iMarker_PerBound, iMarker_Pressure, iMarker_NearFieldBound,
-  iMarker_InterfaceBound, iMarker_Dirichlet, iMarker_Inlet,iMarker_Riemann, iMarker_Outlet,
-  iMarker_Isothermal, iMarker_IsothermalNonCatalytic, iMarker_IsothermalCatalytic,
+  iMarker_InterfaceBound, iMarker_Dirichlet, iMarker_Inlet,iMarker_Riemann, iMarker_MixingPlane,
+  iMarker_Outlet, iMarker_Isothermal, iMarker_IsothermalNonCatalytic, iMarker_IsothermalCatalytic,
   iMarker_HeatFlux, iMarker_HeatFluxNonCatalytic, iMarker_HeatFluxCatalytic,
   iMarker_EngineInflow, iMarker_EngineBleed, iMarker_EngineExhaust, iMarker_Displacement,
   iMarker_Load, iMarker_FlowLoad,  iMarker_Neumann, iMarker_Monitoring,
@@ -4346,6 +4357,16 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
     }
   }
   
+
+  if (nMarker_MixingPlane != 0) {
+        cout << "Mixing Plane boundary marker(s): ";
+        for (iMarker_MixingPlane = 0; iMarker_MixingPlane < nMarker_MixingPlane; iMarker_MixingPlane++) {
+          cout << Marker_Riemann[iMarker_MixingPlane];
+          if (iMarker_MixingPlane < nMarker_MixingPlane-1) cout << ", ";
+          else cout <<"."<<endl;
+      }
+    }
+
   if (nMarker_EngineInflow != 0) {
     cout << "Engine inflow boundary marker(s): ";
     for (iMarker_EngineInflow = 0; iMarker_EngineInflow < nMarker_EngineInflow; iMarker_EngineInflow++) {
@@ -5740,6 +5761,35 @@ unsigned short CConfig::GetKind_Data_Riemann(string val_marker) {
     if (Marker_Riemann[iMarker_Riemann] == val_marker) break;
   return Kind_Data_Riemann[iMarker_Riemann];
 }
+
+unsigned short CConfig::GetKind_Data_MixingPlane(string val_marker) {
+  unsigned short iMarker_MixingPlane;
+  for (iMarker_MixingPlane = 0; iMarker_MixingPlane < nMarker_MixingPlane; iMarker_MixingPlane++)
+    if (Marker_MixingPlane[iMarker_MixingPlane] == val_marker) break;
+  return Kind_Data_MixingPlane[iMarker_MixingPlane];
+}
+
+unsigned short CConfig::GetZone_MixingPlane(string val_marker) {
+  unsigned short iMarker_MixingPlane;
+  for (iMarker_MixingPlane = 0; iMarker_MixingPlane < nMarker_MixingPlane; iMarker_MixingPlane++)
+    if (Marker_MixingPlane[iMarker_MixingPlane] == val_marker) break;
+  return Zone_MixingPlane[iMarker_MixingPlane];
+}
+
+unsigned short CConfig::GetZone_AssFace_MixingPlane(string val_marker) {
+  unsigned short iMarker_MixingPlane;
+  for (iMarker_MixingPlane = 0; iMarker_MixingPlane < nMarker_MixingPlane; iMarker_MixingPlane++)
+    if (Marker_MixingPlane[iMarker_MixingPlane] == val_marker) break;
+  return Zone_AssFace_MixingPlane[iMarker_MixingPlane];
+}
+
+string CConfig::GetMarker_AssFace_MixingPlane(string val_marker) {
+  unsigned short iMarker_MixingPlane;
+  for (iMarker_MixingPlane = 0; iMarker_MixingPlane < nMarker_MixingPlane; iMarker_MixingPlane++)
+    if (Marker_MixingPlane[iMarker_MixingPlane] == val_marker) break;
+  return AssFace_MixingPlane[iMarker_MixingPlane];
+}
+
 
 double CConfig::GetIsothermal_Temperature(string val_marker) {
   unsigned short iMarker_Isothermal = 0;

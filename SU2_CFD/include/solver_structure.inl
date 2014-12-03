@@ -426,6 +426,9 @@ inline void CSolver::BC_Custom(CGeometry *geometry, CSolver **solver_container, 
 inline void CSolver::BC_Riemann(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, 
 										 CConfig *config, unsigned short val_marker) { }
 										 
+inline void CSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, 
+										 CConfig *config, unsigned short val_marker) { }										 
+										 
 inline void CSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, 
 										 CConfig *config, unsigned short val_marker) { }
                      
@@ -731,9 +734,9 @@ inline double CEulerSolver::GetAllBound_CFy_Inv() { return AllBound_CFy_Inv; }
 
 inline double CEulerSolver::GetAllBound_CFz_Inv() { return AllBound_CFz_Inv; }
 
-inline double *CEulerSolver::GetAveragedFlux(unsigned short val_Marker){return AveragedFlux[val_Marker]}
+inline double *CEulerSolver::GetAveragedFlux(unsigned short val_Marker){return AveragedFlux[val_Marker];}
 
-inline void CEulerSolver::SetExtAveragedFlux(unsigned short val_Marker, double* averaged_ext_flux){ ExtAveragedFlux[val_Marker]}
+inline void CEulerSolver::SetExtAveragedFlux(unsigned short val_Marker, double* averaged_ext_flux){ ExtAveragedFlux[val_Marker] = averaged_ext_flux ;}
 
 inline double CEulerSolver::GetTotal_CFreeSurface() { return Total_CFreeSurface; }
 
