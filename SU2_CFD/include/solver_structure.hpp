@@ -930,9 +930,15 @@ public:
 	 /*!
 	  * \brief return the avaraged fluxes
 	  * \param[in] val_Marker - Boundary marker where the mixing process is computed.
+	  */
+	 virtual double *GetExtAveragedFlux(unsigned short val_Marker);
+
+	 /*!
+	  * \brief return the avaraged fluxes
+	  * \param[in] val_Marker - Boundary marker where the mixing process is computed.
 	  * \param[in] averaged_ext_flux- averaged flux from the other adjacent zone.
 	  */
-	void SetExtAveragedFlux(unsigned short val_Marker, double* averaged_ext_flux);
+	 virtual void SetExtAveragedFlux(unsigned short val_Marker, double* averaged_ext_flux);
 
 	/*!
 	 * \brief A virtual member.
@@ -2896,6 +2902,12 @@ public:
 	  * \param[in] val_Marker - Boundary marker where the mixing process is computed.
 	  */
 	double *GetAveragedFlux(unsigned short val_Marker);
+
+	/*!
+	 * \brief return the avaraged fluxes
+	 * \param[in] val_Marker - Boundary marker where the mixing process is computed.
+	 */
+	double *GetExtAveragedFlux(unsigned short val_Marker);
 
 	/*!
      * \brief return the avaraged fluxes

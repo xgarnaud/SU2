@@ -4641,7 +4641,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 
 
   unsigned long iVertex, iPoint;
-  unsigned short iDim, iVar, iMarker, Boundary, Monitoring, iMarker_Monitoring;
+  unsigned short iDim, iVar;
   double Pressure = 0.0, Density = 0.0, Enthalpy = 0.0, Entropy = 0.0, *Velocity = NULL, *Normal = NULL, Area, TotalArea, *UnitNormal = NULL;
 
 
@@ -4679,7 +4679,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 
 	  if ( (geometry->node[iPoint]->GetDomain())  ) {
 
-		  Normal = geometry->vertex[iMarker][iVertex]->GetNormal();
+		  Normal = geometry->vertex[val_Marker][iVertex]->GetNormal();
 
 		  Area = 0.0; for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim]*Normal[iDim]; Area = sqrt(Area);
 
@@ -4706,12 +4706,13 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
       }
 
 
-
+//  	  cout<< "Total Mass Flux " << TotalMassFlux[val_Marker]<< " in marker "<< config->GetMarker_All_TagBound(val_Marker)<<endl;
 	  AveragedFlux[val_Marker][0] = TotalMassFlux[val_Marker]/TotalArea;
+
 	  for (iDim = 0; iDim < nDim; iDim++) {
 		  AveragedFlux[val_Marker][iDim+1] = TotalMomFlux[val_Marker][iDim]/TotalArea;
 	  }
-	  AveragedFlux[val_Marker][nDim] = TotalEnergyFlux[val_Marker]/TotalArea;
+	  AveragedFlux[val_Marker][nDim+1] = TotalEnergyFlux[val_Marker]/TotalArea;
 
 
 
@@ -7448,6 +7449,219 @@ void CEulerSolver::BC_Riemann(CGeometry *geometry, CSolver **solver_container,
 
 void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_container,
                             CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker) {
+
+	unsigned long iVertex, iPoint, Point_Normal;
+	double *V_boundary, *V_domain, *Normal, *UnitNormal;
+	double *Velocity_i, Velocity2_i, Enthalpy_i, Energy_i, StaticEnergy_i, Density_i, Kappa_i, Chi_i, Pressure_i, SoundSpeed_i, ProjVelocity_i;
+	double *Velocity_mix, Velocity2_mix, Enthalpy_mix, Energy_mix, StaticEnergy_mix, Density_mix, Kappa_mix, Chi_mix, Pressure_mix, SoundSpeed_mix;
+	double Area;
+	unsigned short iDim, iVar, jVar;
+	double **P_Tensor, **invP_Tensor, *Lambda_i, **ProjJac_i, **invProjJac_i, *dw, *delta_u, *u_i, *u_mix;
+	double *AvgIntFlux, *AvgExtFlux, *delta_e;
+
+	/* Memory allocation of local pointers */
+	Normal = new double[nDim];
+	UnitNormal = new double[nDim];
+	Velocity_i = new double[nDim];
+	Velocity_mix = new double[nDim];
+	Lambda_i = new double[nVar];
+
+	delta_e = new double[nVar];
+	u_i = new double[nVar];
+	u_mix = new double[nVar];
+	delta_u = new double[nVar];
+	dw = new double[nVar];
+
+	P_Tensor = new double*[nVar];
+	invP_Tensor = new double*[nVar];
+	ProjJac_i = new double*[nVar];
+	invProjJac_i = new double*[nVar];
+	for (iVar = 0; iVar < nVar; iVar++)
+	  {
+		P_Tensor[iVar] = new double[nVar];
+		invP_Tensor[iVar] = new double[nVar];
+		ProjJac_i[iVar] = new double[nVar];
+		invProjJac_i[iVar] = new double[nVar];
+	  }
+	AvgIntFlux = GetAveragedFlux(val_marker);
+	AvgExtFlux = GetExtAveragedFlux(val_marker);
+	for(iVar = 0; iVar< nVar; iVar++){
+		delta_e[iVar] = AvgIntFlux[iVar] - AvgExtFlux[iVar];
+		cout << AvgIntFlux[iVar] << " "<< AvgExtFlux[iVar]<<endl;
+	}
+
+	/*--- Loop over all the vertices on this boundary marker ---*/
+	  for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
+
+		V_boundary= GetCharacPrimVar(val_marker, iVertex);
+
+	    iPoint = geometry->vertex[val_marker][iVertex]->GetNode();
+
+	    /*--- Check if the node belongs to the domain (i.e., not a halo node) ---*/
+	    if (geometry->node[iPoint]->GetDomain()) {
+
+	        /*--- Index of the closest interior node ---*/
+	        Point_Normal = geometry->vertex[val_marker][iVertex]->GetNormal_Neighbor();
+
+	        /*--- Normal vector for this vertex (negate for outward convention) ---*/
+	        geometry->vertex[val_marker][iVertex]->GetNormal(Normal);
+	        for (iDim = 0; iDim < nDim; iDim++) Normal[iDim] = -Normal[iDim];
+	        conv_numerics->SetNormal(Normal);
+
+	        Area = 0.0;
+	        for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim]*Normal[iDim];
+	        Area = sqrt (Area);
+
+	        for (iDim = 0; iDim < nDim; iDim++)
+	            UnitNormal[iDim] = Normal[iDim]/Area;
+
+	        /*--- Retrieve solution at this boundary node ---*/
+	        V_domain = node[iPoint]->GetPrimitive();
+
+	        /* --- Compute the internal state u_i --- */
+	        Velocity2_i = 0;
+	        for(iDim=0; iDim < nDim; iDim++)
+	        {
+	            Velocity_i[iDim] = node[iPoint]->GetVelocity(iDim);
+	            Velocity2_i += Velocity_i[iDim]*Velocity_i[iDim];
+	        }
+
+
+	        Density_i = node[iPoint]->GetDensity();
+
+	        Energy_i = node[iPoint]->GetEnergy();
+	        StaticEnergy_i = Energy_i - 0.5*Velocity2_i;
+
+	        FluidModel->SetTDState_rhoe(Density_i, StaticEnergy_i);
+
+	        Pressure_i = FluidModel->GetPressure();
+	        Enthalpy_i = Energy_i + Pressure_i/Density_i;
+
+	        SoundSpeed_i = FluidModel->GetSoundSpeed();
+
+	        Kappa_i = FluidModel->GetdPde_rho() / Density_i;
+	        Chi_i = FluidModel->GetdPdrho_e() - Kappa_i * StaticEnergy_i;
+
+	        ProjVelocity_i = 0.0;
+	        for (iDim = 0; iDim < nDim; iDim++)
+	        	ProjVelocity_i += Velocity_i[iDim]*UnitNormal[iDim];
+
+	 /*--- evaluate the local eigen structure from internal node ---*///
+
+	        /*--- Compute P (matrix of right eigenvectors) ---*/
+	        conv_numerics->GetPMatrix(&Density_i, Velocity_i, &SoundSpeed_i, &Enthalpy_i, &Chi_i, &Kappa_i, UnitNormal, P_Tensor);
+
+	        /*--- Compute inverse P (matrix of left eigenvectors)---*/
+	        conv_numerics->GetPMatrix_inv(invP_Tensor, &Density_i, Velocity_i, &SoundSpeed_i, &Chi_i, &Kappa_i, UnitNormal);
+
+	        /*--- Compute Projected Jacobian ---*/
+
+	        conv_numerics->GetInviscidProjJac(Velocity_i, &Enthalpy_i, &Chi_i, &Kappa_i, Normal, 1.0, ProjJac_i);
+
+
+	        /*--- Compute Inverse Projected Jacobian ---*/
+
+	        conv_numerics->GetInviscidProjJac_inv(ProjJac_i, invProjJac_i);
+//	        getchar();
+
+	        /*--- Flow eigenvalues ---*/
+	        for (iDim = 0; iDim < nDim; iDim++)
+	          Lambda_i[iDim] = ProjVelocity_i;
+	        Lambda_i[nVar-2] = ProjVelocity_i + SoundSpeed_i;
+	        Lambda_i[nVar-1] = ProjVelocity_i - SoundSpeed_i;
+
+	        for (iVar = 0; iVar < nVar; iVar++)
+			{
+	        	delta_u[iVar] =0.0;
+	        	for (jVar = 0; jVar < nVar; jVar++){
+	        		delta_u[iVar]+=invProjJac_i[iVar][jVar]*delta_e[jVar];
+	        	}
+
+			}
+
+	        u_i[0] = Density_i;
+			for (iDim = 0; iDim < nDim; iDim++)
+				u_i[iDim+1] = Velocity_i[iDim]*Density_i;
+			u_i[nVar-1] = Energy_i*Density_i;
+
+
+	        /*--- Compute the characteristic jumps ---*/
+			for (iVar = 0; iVar < nVar; iVar++)
+			{
+				dw[iVar] = 0;
+				for (jVar = 0; jVar < nVar; jVar++)
+					dw[iVar] += invP_Tensor[iVar][jVar]*delta_u[jVar];
+
+			}
+
+			/*--- Compute the boundary state u_b using characteristics ---*/
+			for (iVar = 0; iVar < nVar; iVar++)
+			{
+				u_mix[iVar] = u_i[iVar];
+
+				for (jVar = 0; jVar < nVar; jVar++)
+				{
+					if(Lambda_i[jVar] < 0)
+					{
+						u_mix[iVar] += P_Tensor[iVar][jVar]*dw[jVar];
+
+					}
+				}
+			}
+
+
+
+	/*--- Compute the thermodynamic state in u_mix ---*/
+			Density_mix = u_mix[0];
+
+			Velocity2_mix = 0;
+			for (iDim = 0; iDim < nDim; iDim++)
+			{
+				Velocity_mix[iDim] = u_mix[iDim+1]/Density_mix;
+				Velocity2_mix += Velocity_mix[iDim]*Velocity_mix[iDim];
+			}
+
+			Energy_mix = u_mix[nVar-1]/Density_mix;
+			StaticEnergy_mix = Energy_mix - 0.5*Velocity2_mix;
+
+			FluidModel->SetTDState_rhoe(Density_mix, StaticEnergy_mix);
+
+			Pressure_mix = FluidModel->GetPressure();
+			Enthalpy_mix = Energy_mix + Pressure_mix/Density_mix;
+
+			Kappa_mix = FluidModel->GetdPde_rho() / Density_mix;
+			Chi_mix = FluidModel->GetdPdrho_e() - Kappa_mix * StaticEnergy_mix;
+
+			/*--- Compute the residuals ---*/
+			conv_numerics->GetInviscidProjFlux(&Density_mix, Velocity_mix, &Pressure_mix, &Enthalpy_mix, Normal, Residual);
+
+
+	    }
+
+	  }
+	  /*--- Free locally allocated memory ---*/
+	  delete [] Normal;
+	  delete [] UnitNormal;
+	  delete [] Velocity_i;
+	  delete [] Velocity_mix;
+	  delete [] Lambda_i;
+	  delete [] u_i;
+	  delete [] u_mix;
+	  delete [] delta_u;
+	  delete [] delta_e;
+	  delete [] dw;
+
+	  for (iVar = 0; iVar < nVar; iVar++)
+	  {
+	      delete [] P_Tensor[iVar];
+	      delete [] invP_Tensor[iVar];
+	      delete [] ProjJac_i[iVar];
+		  delete [] invProjJac_i[iVar];
+	  }
+	  delete [] P_Tensor;
+	  delete [] invP_Tensor;
+	  delete [] ProjJac_i;
+	  delete [] invProjJac_i;
 
 }
 

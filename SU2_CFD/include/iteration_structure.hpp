@@ -272,7 +272,8 @@ void SetTimeSpectral_Velocities(CGeometry ***geometry_container,
  * \param[in] geometry_container - Geometrical definition of the problem.
  * \param[in] solver_container - Container vector with all the solutions.
  * \param[in] config_container - Definition of the particular problem.
+ * \param[in] nZone - Current zone number.
  * \param[in] iZone - Current zone number.
  */
 void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_container, CConfig **config_container,
-		            unsigned short iZone);
+		            unsigned short nZone, unsigned short iZone);

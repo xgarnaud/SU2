@@ -4361,7 +4361,7 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
   if (nMarker_MixingPlane != 0) {
         cout << "Mixing Plane boundary marker(s): ";
         for (iMarker_MixingPlane = 0; iMarker_MixingPlane < nMarker_MixingPlane; iMarker_MixingPlane++) {
-          cout << Marker_Riemann[iMarker_MixingPlane];
+          cout << Marker_MixingPlane[iMarker_MixingPlane];
           if (iMarker_MixingPlane < nMarker_MixingPlane-1) cout << ", ";
           else cout <<"."<<endl;
       }

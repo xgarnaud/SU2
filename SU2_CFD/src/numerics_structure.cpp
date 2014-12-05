@@ -510,6 +510,201 @@ void CNumerics::GetInviscidProjJac(double *val_velocity, double *val_enthalpy,
 	val_Proj_Jac_Tensor[nDim+1][nDim+1] = val_scale*(a2+1)*proj_vel;
 }
 
+
+void CNumerics::GetInviscidProjJac_inv(double **Proj_Jac, double **inv_Proj_Jac){
+
+	double **LU,**X;
+	int *pvt;
+	double test = 0.0;
+	unsigned short iVar, jVar;
+	LU = new double*[nVar];
+	X= new double*[nVar];
+	pvt = new int [nVar];
+	for(iVar = 0; iVar < nVar; iVar++){
+		LU[iVar] = new double[nVar];
+		X[iVar] = new double[nVar];
+		for(jVar = 0; jVar < nVar; jVar++){
+			LU[iVar][jVar] = Proj_Jac[iVar][jVar];
+			X[iVar][jVar] = 0.0;
+
+		}
+	}
+
+	for(iVar = 0; iVar < nVar; iVar++){
+		X[iVar][iVar] = 1.0;
+	}
+
+	pvt = LUfact(LU, 1);
+	for(iVar = 0; iVar < nVar; iVar++){
+		LU_Sol(LU, X[iVar], pvt);
+		for(jVar = 0; jVar < nVar; jVar++){
+			inv_Proj_Jac[jVar][iVar] = X[iVar][jVar];
+//			cout << Proj_Jac[iVar][jVar]<<endl;
+		}
+	}
+
+	for(iVar = 0; iVar < nVar; iVar++){
+		for(jVar = 0; jVar < nVar; jVar++){
+			test +=Proj_Jac[iVar][jVar]*inv_Proj_Jac[jVar][iVar];
+//			cout << Proj_Jac[iVar][jVar]<<endl;
+//			cout << LU[iVar][jVar]<<endl;
+		}
+//	cout << test<< endl;
+//	test = 0.0;
+	}
+	for (iVar = 0; iVar < nVar; iVar++)
+    {
+	  delete [] LU[iVar];
+	  delete [] X[iVar];
+	}
+	delete [] pvt;
+	delete [] LU;
+	delete [] X;
+}
+
+//void CNumerics::LU_fact(double **LU){
+//
+//	unsigned short kVar, iVar, jVar;
+//
+//	for(kVar = 0; kVar< nVar-1; kVar++){
+//		for(iVar = kVar+1; iVar< nVar; iVar++){
+//			LU[iVar][kVar] = LU[iVar][kVar]/LU[kVar][kVar];
+//		}
+//		for(jVar = kVar+1; jVar < nVar; jVar++ )
+//			for(iVar = kVar+1; iVar < nVar; iVar++ ){
+//				LU[iVar][jVar] -= LU[iVar][kVar]/LU[kVar][jVar];
+//			}
+//	}
+//
+//}
+
+
+int* CNumerics::LUfact( double **a, int ps )
+
+{
+     int pass, row, col,
+         *pvt, j, temp;
+     double *s,
+           rmax,
+           ftmp,
+           mult,
+           sum;
+
+/*
+   initialize row pointer array
+*/
+
+     pvt = new int [nVar];
+     for ( row = 0; row < nVar; row++ )
+         pvt[row] = row;
+
+/*
+   if scaled partial pivoting option was selected,
+   initialize scale vector
+*/
+
+     if ( ps == 2 ) {
+        s = new double [nVar];
+        for ( row = 0; row < nVar; row++ ) {
+            s[row] = fabs( a[row][0] );
+            for ( col = 1; col < nVar; col++ )
+                if ( fabs( a[row][col] ) > s[row] )
+                   s[row] = fabs( a[row][col] );
+        }
+     }
+
+/*
+   elimination phase
+*/
+
+     for ( pass = 0; pass < nVar; pass++ ) {
+
+/*
+   perform requested pivoting strategy
+
+   even if no pivoting option is requested, still must check for
+   zero pivot
+*/
+
+         if ( ps != 0 ) {
+            rmax = ( ps == 1 ? fabs( a[pvt[pass]][pass] ) :
+                               fabs( a[pvt[pass]][pass] ) / s[pvt[pass]] );
+            j = pass;
+            for ( row = pass+1; row < nVar; row++ ) {
+                ftmp = ( ps == 1 ? fabs( a[pvt[row]][pass] ) :
+                                   fabs( a[pvt[row]][pass] ) / s[pvt[row]] );
+                if ( ftmp > rmax ) {
+                   rmax = ftmp;
+                   j = row;
+                }
+            }
+
+            if ( j != pass ) {
+               temp = pvt[j];
+               pvt[j] = pvt[pass];
+               pvt[pass] = temp;
+            }
+         }
+         else {
+            if ( a[pvt[pass]][pass] == 0.0 ) {
+               for ( row = pass+1; row < nVar; row++ )
+                   if ( a[pvt[row]][pass] != 0.0 ) break;
+               temp = pvt[row];
+               pvt[row] = pvt[pass];
+               pvt[pass] = temp;
+            }
+         }
+
+         for ( row = pass + 1; row < nVar; row++ ) {
+             mult = - a[pvt[row]][pass] / a[pvt[pass]][pass];
+             a[pvt[row]][pass] = -mult;
+             for ( col = pass+1; col < nVar; col++ )
+                 a[pvt[row]][col] += mult * a[pvt[pass]][col];
+         }
+     }
+
+     if ( ps == 2 ) delete [] s;
+     return pvt ;
+}
+
+void CNumerics::LU_Sol( double **a, double *b, int *pvt)
+
+	{
+	     int row, col;
+	     double sum,
+	           *x;
+
+	/*
+	   forward substitution step
+	*/
+
+	     x = new double [nVar];
+	     x[0] = b[pvt[0]];
+	     for ( row = 1; row < nVar; row++ ) {
+	         sum = b[pvt[row]];
+	         for ( col = 0; col < row; col++ )
+	             sum -= x[col] * a[pvt[row]][col];
+	         x[row] = sum;
+	     }
+
+	/*
+	   backward substitution step
+	*/
+
+	     b[nVar-1] = x[nVar-1] / a[pvt[nVar-1]][nVar-1];
+	     for ( row = nVar-2; row >= 0; row-- ) {
+	         sum = x[row];
+	         for ( col = row+1; col < nVar; col++ )
+	             sum -= b[col] * a[pvt[row]][col];
+	         b[row] = sum / a[pvt[row]][row];
+	     }
+
+	     delete [] x;
+
+	}
+
+
+
 void CNumerics::GetInviscidProjJac(double *val_U, double *val_V,
                                    double *val_dPdU, double *val_normal,
                                    double val_scale,

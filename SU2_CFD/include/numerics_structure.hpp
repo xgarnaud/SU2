@@ -961,6 +961,30 @@ void GetViscousProjFlux(double *val_primvar, double **val_gradprimvar,
 							double *val_chi, double *val_kappa,
 							double *val_normal, double val_scale,
 							double **val_Proj_Jac_tensor);	
+
+
+	/*!
+	 * \brief Compute the inverse matrix of the projection of the inviscid Jacobian matrices.
+	 * \param[in] Proj_Jac projection of the inviscid Jacobian matrices.
+	 * \param[out] inv_Proj_Jac inverted projected inviscid Jacobian.
+	 */
+	void GetInviscidProjJac_inv(double **Proj_Jac, double **inv_Proj_Jac);
+
+	/*!
+	 * \brief Compute the LU factorization of a matrix.
+	 * \param[in] LU copy of the matrix to LU factorization.
+	 * \param[out] LU factorized matrix
+	 */
+	int* LUfact( double **a, int ps );
+
+	/*!
+	 * \brief Compute the solution of a linear system Ax = b using the direct method based on LU factorization
+	 * \param[in] LU factorized matrix
+	 * \param[in] x is entering as the b vector of the linear system
+	 * \param[out] x is exiting as the result x of the linear system
+	 */
+	void LU_Sol( double **a, double *b, int *pvt);
+
 	/*!
 	 * \overload
 	 * \brief Compute the projection of the inviscid Jacobian matrices.

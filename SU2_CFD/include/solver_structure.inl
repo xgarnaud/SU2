@@ -492,7 +492,9 @@ inline void CSolver::Inviscid_Forces(CGeometry *geometry, CConfig *config) { }
 
 inline void CSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker){ }
 
-inline double *CSolver::GetAveragedFlux(unsigned short val_Marker){ }
+inline double *CSolver::GetAveragedFlux(unsigned short val_Marker){ return 0;}
+
+inline double *CSolver::GetExtAveragedFlux(unsigned short val_Marker){return 0;}
 
 inline void CSolver::SetExtAveragedFlux(unsigned short val_Marker, double* averagedExt_flux){ }
 
@@ -736,7 +738,12 @@ inline double CEulerSolver::GetAllBound_CFz_Inv() { return AllBound_CFz_Inv; }
 
 inline double *CEulerSolver::GetAveragedFlux(unsigned short val_Marker){return AveragedFlux[val_Marker];}
 
-inline void CEulerSolver::SetExtAveragedFlux(unsigned short val_Marker, double* averaged_ext_flux){ ExtAveragedFlux[val_Marker] = averaged_ext_flux ;}
+inline double *CEulerSolver::GetExtAveragedFlux(unsigned short val_Marker){return ExtAveragedFlux[val_Marker];}
+
+inline void CEulerSolver::SetExtAveragedFlux(unsigned short val_Marker, double* averaged_ext_flux){ 
+	ExtAveragedFlux[val_Marker] = averaged_ext_flux;
+	cout<<ExtAveragedFlux[val_Marker][0]<<endl;
+	}
 
 inline double CEulerSolver::GetTotal_CFreeSurface() { return Total_CFreeSurface; }
 
