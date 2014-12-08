@@ -2236,11 +2236,13 @@ protected:
 
 
   double
+      *TotalArea,      /*!< \brief total Area. */
       *TotalMassFlux,  /*!< \brief Mass flux. */
       **TotalMomFlux,  /*!< \brief Total momentum flux. */
       *TotalEnergyFlux,  /*!< \brief Total energy flux. */
 	  **AveragedFlux,  /*!< \brief Averaged flux. */
 	  **AveragedVelocity, /*!< \brief Averaged Velocity. */
+	  **AveragedNormal, /*!< \brief Averaged Normal. */
 	  *AveragedPressure, /*!< \brief Averaged Pressure. */
 	  *AveragedTemperature, /*!< \brief Averaged Pressure. */
 	  **ExtAveragedFlux; /*!< \brief Averaged flux.  */

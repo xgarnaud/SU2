@@ -344,8 +344,9 @@ CEulerSolver::CEulerSolver(CGeometry *geometry, CConfig *config, unsigned short 
   
   /*--- Averaged quantities (for mixing processes) ---*/
 
-  TotalMassFlux     = new double[nMarker];
-  TotalMomFlux    = new double*[nMarker];
+  TotalArea     = new double[nMarker];
+  TotalMassFlux = new double[nMarker];
+  TotalMomFlux  = new double*[nMarker];
   for (iMarker = 0; iMarker < nMarker; iMarker++) {
 	  TotalMomFlux[iMarker] = new double [nVar];
   	  for (iDim = 0; iDim < nDim; iDim++) {
@@ -369,9 +370,16 @@ CEulerSolver::CEulerSolver(CGeometry *geometry, CConfig *config, unsigned short 
   }
   AveragedVelocity = new double* [nMarker];
   for (iMarker = 0; iMarker < nMarker; iMarker++) {
-	  AveragedVelocity[iMarker] = new double [nVar];
-	  for (iVar = 0; iVar < nVar; iVar++) {
-		  AveragedVelocity[iMarker][iVar] = 0.0;
+	  AveragedVelocity[iMarker] = new double [nDim];
+	  for (iDim = 0; iDim < nDim; iDim++) {
+		  AveragedVelocity[iMarker][iDim] = 0.0;
+	  }
+  }
+  AveragedNormal = new double* [nMarker];
+  for (iMarker = 0; iMarker < nMarker; iMarker++) {
+	  AveragedNormal[iMarker] = new double [nDim];
+	  for (iDim = 0; iDim < nDim; iDim++) {
+		  AveragedNormal[iMarker][iDim] = 0.0;
 	  }
   }
   ExtAveragedFlux = new double* [nMarker];
@@ -4493,10 +4501,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 
   unsigned long iVertex, iPoint;
   unsigned short iDim, iVar;
-  double Pressure = 0.0, Density = 0.0, Temperature = 0.0, Enthalpy = 0.0, Entropy = 0.0, *Velocity = NULL, *Normal = NULL, Area, TotalArea, *UnitNormal = NULL;
-
-
-
+  double Pressure = 0.0, Density = 0.0, Temperature = 0.0, Enthalpy = 0.0, Entropy = 0.0, *Velocity = NULL, *Normal = NULL, Area, *UnitNormal = NULL;
 
   /*-- Variables declaration and allocation ---*/
 
@@ -4510,7 +4515,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
     TotalMomFlux[val_Marker][iDim] = 0.0;
   }
   TotalEnergyFlux[val_Marker] = 0.0;
-  TotalArea = 0.0;
+  TotalArea[val_Marker] = 0.0;
 
   AveragedPressure[val_Marker] = 0.0;
   AveragedTemperature[val_Marker] = 0.0;
@@ -4571,9 +4576,10 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 
 		  for (iDim = 0; iDim < nDim; iDim++) {
 			AveragedVelocity[val_Marker][iDim] += Area*Velocity[iDim];
+			AveragedNormal[val_Marker][iDim] += Area*Normal[iDim];
 		  }
 
-		  TotalArea += Area;
+		  TotalArea[val_Marker] += Area;
 
 		  }
 
@@ -4581,22 +4587,23 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 
 
 //  	  cout<< "Total Mass Flux " << TotalMassFlux[val_Marker]<< " in marker "<< config->GetMarker_All_TagBound(val_Marker)<<endl;
-	  AveragedFlux[val_Marker][0] = TotalMassFlux[val_Marker]/TotalArea;
+	  AveragedFlux[val_Marker][0] = TotalMassFlux[val_Marker]/TotalArea[val_Marker];
 
 	  for (iDim = 0; iDim < nDim; iDim++) {
-		  AveragedFlux[val_Marker][iDim+1] = TotalMomFlux[val_Marker][iDim]/TotalArea;
+		  AveragedFlux[val_Marker][iDim+1] = TotalMomFlux[val_Marker][iDim]/TotalArea[val_Marker];
 	  }
-	  AveragedFlux[val_Marker][nDim+1] = TotalEnergyFlux[val_Marker]/TotalArea;
+	  AveragedFlux[val_Marker][nDim+1] = TotalEnergyFlux[val_Marker]/TotalArea[val_Marker];
 
-	  AveragedPressure[val_Marker] /= TotalArea;
-	  AveragedTemperature[val_Marker] /= TotalArea;
+	  AveragedPressure[val_Marker] /= TotalArea[val_Marker];
+	  AveragedTemperature[val_Marker] /= TotalArea[val_Marker];
 
 	  for (iDim = 0; iDim < nDim; iDim++) {
-		AveragedVelocity[val_Marker][iDim] /= TotalArea;
+		AveragedVelocity[val_Marker][iDim] /= TotalArea[val_Marker];
+		AveragedNormal[val_Marker][iDim] /= TotalArea[val_Marker];
 	  }
 
-	  cout << AveragedPressure[val_Marker] <<" " <<AveragedTemperature[val_Marker]<< endl;
-	  cout << AveragedVelocity[val_Marker][0]*UnitNormal[0]<< " "<< AveragedVelocity[val_Marker][1]*UnitNormal[1]<< endl;
+//	  cout << AveragedPressure[val_Marker] <<" " <<AveragedTemperature[val_Marker]<< endl;
+//	  cout << AveragedVelocity[val_Marker][0]*UnitNormal[0]<< " "<< AveragedVelocity[val_Marker][1]*UnitNormal[1]<< endl;
 
   delete [] Velocity;
   delete[] UnitNormal;
@@ -7336,10 +7343,12 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 	double *V_boundary, *V_domain, *Normal, *UnitNormal;
 	double *Velocity_i, Velocity2_i, Enthalpy_i, Energy_i, StaticEnergy_i, Density_i, Kappa_i, Chi_i, Pressure_i, SoundSpeed_i, ProjVelocity_i;
 	double *Velocity_mix, Velocity2_mix, Enthalpy_mix, Energy_mix, StaticEnergy_mix, Density_mix, Kappa_mix, Chi_mix, Pressure_mix, SoundSpeed_mix;
+	double Velocity2_avg, Enthalpy_avg, Energy_avg, StaticEnergy_avg, Density_avg, Kappa_avg, Chi_avg, Pressure_avg, Temperature_avg, SoundSpeed_avg, ProjVelocity_avg;
 	double Area;
 	unsigned short iDim, iVar, jVar;
 	double **P_Tensor, **invP_Tensor, *Lambda_i, **ProjJac_i, **invProjJac_i, *dw, *delta_u, *u_i, *u_mix;
 	double *AvgIntFlux, *AvgExtFlux, *delta_e;
+    string Marker_Tag = config->GetMarker_All_TagBound(val_marker);
 
 	/* Memory allocation of local pointers */
 	Normal = new double[nDim];
@@ -7367,11 +7376,87 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 	  }
 	AvgIntFlux = GetAveragedFlux(val_marker);
 	AvgExtFlux = GetExtAveragedFlux(val_marker);
-	for(iVar = 0; iVar< nVar; iVar++){
-		delta_e[iVar] = (AvgIntFlux[iVar] - AvgExtFlux[iVar]);
+	for( iVar = 0; iVar< nVar; iVar++ ) {
+//		if ( config->GetKind_Data_MixingPlane(Marker_Tag) == MIXING_LOCAL ) {
+			delta_e[iVar] = -( abs(AvgIntFlux[iVar]) - abs(AvgExtFlux[iVar]) );
+//		}
+//		else {
+//			delta_e[iVar] = ( abs(AvgIntFlux[iVar]) - abs(AvgExtFlux[iVar]) );
+//		}
 //		cout << AvgIntFlux[iVar] << " "<< AvgExtFlux[iVar]<<endl;
-	cout <<"delta_e "<< delta_e[iVar]<<endl;
+//	cout <<"delta_e "<< delta_e[iVar]<<endl;
 	}
+
+    /* --- Compute the internal state u_i --- */
+    Velocity2_avg = 0;
+    for(iDim=0; iDim < nDim; iDim++)
+    {
+        Velocity2_avg += AveragedVelocity[val_marker][iDim]*AveragedVelocity[val_marker][iDim];
+
+    }
+
+    Pressure_avg = AveragedPressure[val_marker];
+    Temperature_avg = AveragedTemperature[val_marker];
+    FluidModel->SetTDState_rhoe(Pressure_avg, Temperature_avg);
+
+    Density_avg = FluidModel->GetDensity();
+    StaticEnergy_avg = FluidModel->GetStaticEnergy();
+    Energy_avg = StaticEnergy_avg + 0.5*Velocity2_avg;
+
+    Enthalpy_avg = Energy_avg + Pressure_avg/Density_avg;
+
+    SoundSpeed_avg = FluidModel->GetStaticEnergy();
+
+    Kappa_avg = FluidModel->GetdPde_rho() / Density_avg;
+    Chi_avg = FluidModel->GetdPdrho_e() - Kappa_avg * StaticEnergy_avg;
+
+    /*--- Compute Projected Jacobian ---*/
+    for (iDim = 0; iDim < nDim; iDim++) {
+    	Normal[iDim] = -AveragedNormal[val_marker][iDim];
+    	UnitNormal[iDim] = Normal[iDim]/TotalArea[val_marker];
+    }
+    conv_numerics->GetInviscidProjJac(AveragedVelocity[val_marker], &Enthalpy_avg, &Chi_avg, &Kappa_avg, Normal, 1.0, ProjJac_i);
+
+    /*--- Compute Inverse Projected Jacobian ---*/
+    conv_numerics->GetInviscidProjJac_inv(ProjJac_i, invProjJac_i);
+
+    for (iVar = 0; iVar < nVar; iVar++)
+    {
+      	delta_u[iVar] = 0.0;
+       	for (jVar = 0; jVar < nVar; jVar++){
+       		delta_u[iVar]+=invProjJac_i[iVar][jVar]*0.001*delta_e[jVar];
+       	}
+    //	        	cout << "delta_u "<< delta_u[iVar]<<endl;
+    }
+
+    ProjVelocity_avg = 0.0;
+    for (iDim = 0; iDim < nDim; iDim++)
+     	ProjVelocity_avg += AveragedVelocity[val_marker][iDim]*UnitNormal[iDim];
+
+//    cout << ProjVelocity_avg << endl;
+//    cout << endl;
+
+    /*--- Compute P (matrix of right eigenvectors) ---*/
+    conv_numerics->GetPMatrix(&Density_avg, AveragedVelocity[val_marker], &SoundSpeed_avg, &Enthalpy_avg, &Chi_avg, &Kappa_avg, UnitNormal, P_Tensor);
+
+    /*--- Compute inverse P (matrix of left eigenvectors)---*/
+    conv_numerics->GetPMatrix_inv(invP_Tensor, &Density_avg, AveragedVelocity[val_marker], &SoundSpeed_avg, &Chi_avg, &Kappa_avg, UnitNormal);
+
+    /*--- Flow eigenvalues ---*/
+    for (iDim = 0; iDim < nDim; iDim++)
+      Lambda_i[iDim] = ProjVelocity_avg;
+    Lambda_i[nVar-2] = ProjVelocity_avg + SoundSpeed_avg;
+    Lambda_i[nVar-1] = ProjVelocity_avg - SoundSpeed_avg;
+
+    /*--- Compute the characteristic jumps (equal for all cells) ---*/
+	for (iVar = 0; iVar < nVar; iVar++)
+	{
+		dw[iVar] = 0;
+		for (jVar = 0; jVar < nVar; jVar++)
+			dw[iVar] += invP_Tensor[iVar][jVar]*delta_u[jVar];
+	}
+
+
 
 	/*--- Loop over all the vertices on this boundary marker ---*/
 	  for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
@@ -7419,48 +7504,54 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 
 	        Pressure_i = FluidModel->GetPressure();
 	        Enthalpy_i = Energy_i + Pressure_i/Density_i;
+//
+//	        SoundSpeed_i = FluidModel->GetSoundSpeed();
+//
+//	        Kappa_i = FluidModel->GetdPde_rho() / Density_i;
+//	        Chi_i = FluidModel->GetdPdrho_e() - Kappa_i * StaticEnergy_i;
+//
+//	        ProjVelocity_i = 0.0;
+//	        for (iDim = 0; iDim < nDim; iDim++)
+//	        	ProjVelocity_i += Velocity_i[iDim]*UnitNormal[iDim];
 
-	        SoundSpeed_i = FluidModel->GetSoundSpeed();
+	        /*--- evaluate the local eigen structure from internal node ---*///
 
-	        Kappa_i = FluidModel->GetdPde_rho() / Density_i;
-	        Chi_i = FluidModel->GetdPdrho_e() - Kappa_i * StaticEnergy_i;
+//	        /*--- Compute P (matrix of right eigenvectors) ---*/
+//	        conv_numerics->GetPMatrix(&Density_i, Velocity_i, &SoundSpeed_i, &Enthalpy_i, &Chi_i, &Kappa_i, UnitNormal, P_Tensor);
+//
+//	        /*--- Compute inverse P (matrix of left eigenvectors)---*/
+//	        conv_numerics->GetPMatrix_inv(invP_Tensor, &Density_i, Velocity_i, &SoundSpeed_i, &Chi_i, &Kappa_i, UnitNormal);
 
-	        ProjVelocity_i = 0.0;
-	        for (iDim = 0; iDim < nDim; iDim++)
-	        	ProjVelocity_i += Velocity_i[iDim]*UnitNormal[iDim];
-
-	 /*--- evaluate the local eigen structure from internal node ---*///
-
-	        /*--- Compute P (matrix of right eigenvectors) ---*/
-	        conv_numerics->GetPMatrix(&Density_i, Velocity_i, &SoundSpeed_i, &Enthalpy_i, &Chi_i, &Kappa_i, UnitNormal, P_Tensor);
-
-	        /*--- Compute inverse P (matrix of left eigenvectors)---*/
-	        conv_numerics->GetPMatrix_inv(invP_Tensor, &Density_i, Velocity_i, &SoundSpeed_i, &Chi_i, &Kappa_i, UnitNormal);
-
-	        /*--- Compute Projected Jacobian ---*/
-
-	        conv_numerics->GetInviscidProjJac(Velocity_i, &Enthalpy_i, &Chi_i, &Kappa_i, Normal, 1.0, ProjJac_i);
-
-
-	        /*--- Compute Inverse Projected Jacobian ---*/
-
-	        conv_numerics->GetInviscidProjJac_inv(ProjJac_i, invProjJac_i);
+//	        /*--- Compute Projected Jacobian ---*/
+//
+//	        conv_numerics->GetInviscidProjJac(Velocity_i, &Enthalpy_i, &Chi_i, &Kappa_i, Normal, 1.0, ProjJac_i);
+//
+//
+//	        /*--- Compute Inverse Projected Jacobian ---*/
+//
+//	        conv_numerics->GetInviscidProjJac_inv(ProjJac_i, invProjJac_i);
 //	        getchar();
+//
+//	        /*--- Flow eigenvalues ---*/
+//	        for (iDim = 0; iDim < nDim; iDim++)
+//	          Lambda_i[iDim] = ProjVelocity_i;
+//	        Lambda_i[nVar-2] = ProjVelocity_i + SoundSpeed_i;
+//	        Lambda_i[nVar-1] = ProjVelocity_i - SoundSpeed_i;
 
-	        /*--- Flow eigenvalues ---*/
-	        for (iDim = 0; iDim < nDim; iDim++)
-	          Lambda_i[iDim] = ProjVelocity_i;
-	        Lambda_i[nVar-2] = ProjVelocity_i + SoundSpeed_i;
-	        Lambda_i[nVar-1] = ProjVelocity_i - SoundSpeed_i;
+//	        for (iVar = 0; iVar < nVar; iVar++) {
+//	            cout << Lambda_i[iVar] << endl;
+//	        }
+//	        cout << " " << endl;
 
-	        for (iVar = 0; iVar < nVar; iVar++)
-			{
-	        	delta_u[iVar] =0.0;
-	        	for (jVar = 0; jVar < nVar; jVar++){
-	        		delta_u[iVar]+=invProjJac_i[iVar][jVar]*0.1*delta_e[jVar];
-	        	}
-	        	cout << "delta_u "<< delta_u[iVar]<<endl;
-			}
+
+//	        for (iVar = 0; iVar < nVar; iVar++)
+//			{
+//	        	delta_u[iVar] =0.0;
+//	        	for (jVar = 0; jVar < nVar; jVar++){
+//	        		delta_u[iVar]+=invProjJac_i[iVar][jVar]*0.005*delta_e[jVar];
+//	        	}
+////	        	cout << "delta_u "<< delta_u[iVar]<<endl;
+//			}
 
 	        u_i[0] = Density_i;
 			for (iDim = 0; iDim < nDim; iDim++)
@@ -7468,14 +7559,14 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 			u_i[nVar-1] = Energy_i*Density_i;
 
 
-	        /*--- Compute the characteristic jumps ---*/
-			for (iVar = 0; iVar < nVar; iVar++)
-			{
-				dw[iVar] = 0;
-				for (jVar = 0; jVar < nVar; jVar++)
-					dw[iVar] += invP_Tensor[iVar][jVar]*delta_u[jVar];
-
-			}
+//	        /*--- Compute the characteristic jumps ---*/
+//			for (iVar = 0; iVar < nVar; iVar++)
+//			{
+//				dw[iVar] = 0;
+//				for (jVar = 0; jVar < nVar; jVar++)
+//					dw[iVar] += invP_Tensor[iVar][jVar]*delta_u[jVar];
+//
+//			}
 
 			/*--- Compute the boundary state u_b using characteristics ---*/
 			for (iVar = 0; iVar < nVar; iVar++)
@@ -7492,8 +7583,8 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 				}
 			}
 
-	cout << u_i[0]<< " "<< u_i[1]<<" "<< u_i[2]<<endl;
-	cout << u_mix[0]<< " "<< u_mix[1]<<" "<< u_mix[2]<<endl;
+//	cout << u_i[0]<< " "<< u_i[1]<<" "<< u_i[2]<<endl;
+//	cout << u_mix[0]<< " "<< u_mix[1]<<" "<< u_mix[2]<<endl;
 
 	/*--- Compute the thermodynamic state in u_mix ---*/
 			Density_mix = u_mix[0];
@@ -7516,18 +7607,21 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 			Kappa_mix = FluidModel->GetdPde_rho() / Density_mix;
 			Chi_mix = FluidModel->GetdPdrho_e() - Kappa_mix * StaticEnergy_mix;
 
-			cout<<"Pressure mix "  << Pressure_mix<<endl;
-			cout<<"Density mix "  << Density_mix<<endl;
-			cout<<"Velocity_mix x "  << Velocity_mix[0]<<endl;
-			cout<<"Velocity_mix y "  << Velocity_mix[1]<<endl;
+//			cout<<"Pressure mix "  << Pressure_mix<<endl;
+//			cout<<"Density mix "  << Density_mix<<endl;
+//			cout<<"Velocity_mix x "  << Velocity_mix[0]<<endl;
+//			cout<<"Velocity_mix y "  << Velocity_mix[1]<<endl;
 
 			/*--- Compute the residuals ---*/
 			conv_numerics->GetInviscidProjFlux(&Density_mix, Velocity_mix, &Pressure_mix, &Enthalpy_mix, Normal, Residual);
 
+            /*--- Update residual value ---*/
+		    LinSysRes.AddBlock(iPoint, Residual);
 
 	    }
 
 	  }
+
 	  /*--- Free locally allocated memory ---*/
 	  delete [] Normal;
 	  delete [] UnitNormal;

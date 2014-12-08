@@ -1783,7 +1783,7 @@ void SetMixingPlane(CGeometry ***geometry_container, CSolver ****solver_containe
 //						cout << config_container[jZone]->GetMarker_All_TagBound(extMarker) << " " << jZone << endl;
 						/*-- Set the averaged fluxes of the Mixing Plane boundary on the associated face  --*/
 						solver_container[jZone][MESH_0][FLOW_SOL]->SetExtAveragedFlux(extMarker, averaged_flux);
-						ext_averaged_flux = solver_container[jZone][MESH_0][FLOW_SOL]->GetExtAveragedFlux(extMarker);
+//						ext_averaged_flux = solver_container[jZone][MESH_0][FLOW_SOL]->GetExtAveragedFlux(extMarker);
 //						cout << ext_averaged_flux[0] << " " << averaged_flux[0] << endl;
 //						getchar();
 
