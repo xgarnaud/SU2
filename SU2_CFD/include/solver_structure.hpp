@@ -2240,7 +2240,10 @@ protected:
       **TotalMomFlux,  /*!< \brief Total momentum flux. */
       *TotalEnergyFlux,  /*!< \brief Total energy flux. */
 	  **AveragedFlux,  /*!< \brief Averaged flux. */
-	  **ExtAveragedFlux; /*!< \brief Averaged flux. */
+	  **AveragedVelocity, /*!< \brief Averaged Velocity. */
+	  *AveragedPressure, /*!< \brief Averaged Pressure. */
+	  *AveragedTemperature, /*!< \brief Averaged Pressure. */
+	  **ExtAveragedFlux; /*!< \brief Averaged flux.  */
 	
   double
   AllBound_CDrag_Inv,	/*!< \brief Total drag coefficient (inviscid contribution) for all the boundaries. */

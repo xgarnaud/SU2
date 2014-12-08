@@ -355,12 +355,23 @@ CEulerSolver::CEulerSolver(CGeometry *geometry, CConfig *config, unsigned short 
 
   TotalEnergyFlux   = new double[nMarker];
 
+//TODO (Salvo) does not work with 2phase flow the average of Temperature and Pressure
+
+  AveragedPressure = new double [nMarker];
+  AveragedTemperature = new double [nMarker];
 
   AveragedFlux = new double* [nMarker];
   for (iMarker = 0; iMarker < nMarker; iMarker++) {
 	  AveragedFlux[iMarker] = new double [nVar];
 	  for (iVar = 0; iVar < nVar; iVar++) {
 		  AveragedFlux[iMarker][iVar] = 0.0;
+	  }
+  }
+  AveragedVelocity = new double* [nMarker];
+  for (iMarker = 0; iMarker < nMarker; iMarker++) {
+	  AveragedVelocity[iMarker] = new double [nVar];
+	  for (iVar = 0; iVar < nVar; iVar++) {
+		  AveragedVelocity[iMarker][iVar] = 0.0;
 	  }
   }
   ExtAveragedFlux = new double* [nMarker];
@@ -4478,171 +4489,12 @@ void CEulerSolver::Inviscid_Forces(CGeometry *geometry, CConfig *config) {
 
 void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig *config, unsigned short val_Marker) {
 
-//  unsigned long iVertex, iPoint;
-//  unsigned short iDim, iVar, iMarker, Boundary, Monitoring, iMarker_Monitoring;
-//  double Pressure = 0.0, Density = 0.0, Enthalpy = 0.0, Entropy = 0.0, *Velocity = NULL, *Normal = NULL, MomentDist[3], *Coord,
-//		  Area, TotalArea, TotalAreaPressure, AreaAveragedPressure, factor, UnitNormal[3], AveragedVelocity2;
-//  double *Origin = config->GetRefOriginMoment(0);
-//  string Marker_Tag, Monitoring_Tag;
-//
-//  bool grid_movement = config->GetGrid_Movement();
-//  bool compressible = (config->GetKind_Regime() == COMPRESSIBLE);
-//  bool incompressible = (config->GetKind_Regime() == INCOMPRESSIBLE);
-//  bool freesurface = (config->GetKind_Regime() == FREESURFACE);
-//
-//  /*-- Variables declaration and allocation ---*/
-//
-//  Velocity = new double[nDim];
-//
-//  /*--- Loop over the Euler and Navier-Stokes markers ---*/
-//
-//  for (iMarker = 0; iMarker < nMarker; iMarker++) {
-//
-////	  Boundary   = config->GetMarker_All_KindBC(iMarker);
-////	  Monitoring = config->GetMarker_All_Monitoring(iMarker);
-//
-////	  Marker_Tag = config->GetMarker_All_TagBound(iMarker);
-////
-////	  cout << " iMarker : " << iMarker;
-////	  cout << " Marker_Tag : " << Marker_Tag;
-////	  cout << "  Boundary_Type : " << Boundary;
-////	  cout << " Monitoring: " << Monitoring << endl;
-//
-//	  if ( iMarker == val_Marker  ) {
-//
-//		  /*--- Forces initialization at each Marker ---*/
-//
-//		  AveragedPressure[iMarker] = 0.0;
-//		  AveragedEnthalpy[iMarker] = 0.0;
-//		  AveragedDensity[iMarker] = 0.0;
-//		  AveragedVelocity[iMarker][3] = 0.0;
-//		  TotalMassFlux[iMarker] = 0.0;
-//		  TotalMomtXFlux[iMarker] = 0.0;
-//		  TotalMomtYFlux[iMarker] = 0.0;
-//		  TotalMomtZFlux[iMarker] = 0.0;
-//		  TotalEnergyFlux[iMarker] = 0.0;
-//
-//		  /*--- Loop over the vertices to compute the averaged quantities ---*/
-//
-//		  for (iVertex = 0; iVertex < geometry->GetnVertex(iMarker); iVertex++) {
-//
-//			  iPoint = geometry->vertex[iMarker][iVertex]->GetNode();
-//
-//			  /*--- Compute the integral fluxes for the boundaries ---*/
-//
-//			  if (compressible) {
-//				  solver[FLOW_SOL]->node[iPoint]->SetPrimVar_Compressible(FluidModel);
-//				  Pressure = solver[FLOW_SOL]->node[iPoint]->GetPressure();
-//				  Density = solver[FLOW_SOL]->node[iPoint]->GetDensity();
-//				  Enthalpy = solver[FLOW_SOL]->node[iPoint]->GetEnthalpy();
-//			  }
-//			  else {
-//				  cout << "!!! Mixing process for incompressible and freesurface does not available yet !!! " << endl;
-//				  cout << "Press any key to exit..." << endl;
-//				  cin.get();
-//				  exit(1);
-//			  }
-//
-//			  /*--- Note that the fluxes from halo cells are discarded ---*/
-//
-//			  if ( (geometry->node[iPoint]->GetDomain())  ) {
-//
-//				  Normal = geometry->vertex[iMarker][iVertex]->GetNormal();
-//
-//				  Area = 0.0; for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim]*Normal[iDim]; Area = sqrt(Area);
-//
-//				  double VelNormal = 0.0, VelSq = 0.0;
-//				  for (iDim = 0; iDim < nDim; iDim++) {
-//					  UnitNormal[iDim] = Normal[iDim]/Area;
-//					  Velocity[iDim] = solver[FLOW_SOL]->node[iPoint]->GetPrimitive(iDim+1);
-//					  VelNormal += UnitNormal[iDim]*Velocity[iDim];
-//					  VelSq += Velocity[iDim]*Velocity[iDim];
-//				  }
-//
-//				  /*--- Compute the integral fluxes for the boundaries of interest ---*/
-//
-//				  if (iDim == 2) {
-//					  TotalMassFlux[iMarker] += Area*(Density*VelNormal );
-//					  TotalMomtXFlux[iMarker] += Area*(Density*VelNormal*Velocity[0] + Pressure*UnitNormal[0] );
-//					  TotalMomtYFlux[iMarker] += Area*(Density*VelNormal*Velocity[1] + Pressure*UnitNormal[1] );
-//					  TotalEnergyFlux[iMarker] += Area*(Density*VelNormal*(Enthalpy+VelSq/2) );
-//					  TotalArea += Area;
-//    			  	  TotalAreaPressure += Area*Pressure;
-//				  }
-//				  else {
-//					  TotalMassFlux[iMarker] += Area*(Density*VelNormal);
-//    			  	  TotalMomtXFlux[iMarker] += Area*(Density*VelNormal*Velocity[0] + Pressure*UnitNormal[0] );
-//    			  	  TotalMomtYFlux[iMarker] += Area*(Density*VelNormal*Velocity[1] + Pressure*UnitNormal[1] );
-//    			  	  TotalMomtZFlux[iMarker] += Area*(Density*VelNormal*Velocity[2] + Pressure*UnitNormal[2] );
-//    			  	  TotalEnergyFlux[iMarker] += Area*(Density*VelNormal*(Enthalpy+VelSq/2) );
-//    			  	  TotalArea += Area;
-//    			  	  TotalAreaPressure += Area*Pressure;
-//				  }
-//			  }
-//		  }
-//
-//		  if (iDim == 2) {
-//			  AveragedFlux[iMarker][0] = TotalMassFlux[iMarker]/TotalArea;
-//			  AveragedFlux[iMarker][1] = TotalMomtXFlux[iMarker]/TotalArea;
-//			  AveragedFlux[iMarker][2] = TotalMomtYFlux[iMarker]/TotalArea;
-//			  AveragedFlux[iMarker][3] = TotalEnergyFlux[iMarker]/TotalArea;
-//			  double val_init_pressure = TotalAreaPressure/TotalArea;
-////    	  	  cout << " pressure_average: " << val_init_pressure << endl;
-//
-//			  MixedOut_Average (val_init_pressure, AveragedFlux[iMarker], UnitNormal, &AveragedPressure[iMarker], &AveragedDensity[iMarker]);
-//			  FluidModel->SetTDState_Prho(AveragedPressure[iMarker], AveragedDensity[iMarker]);
-//			  AveragedVelocity[iMarker][0] = ( AveragedFlux[iMarker][1] - AveragedPressure[iMarker]*UnitNormal[0] ) / AveragedFlux[iMarker][0];
-//			  AveragedVelocity[iMarker][1] = ( AveragedFlux[iMarker][2] - AveragedPressure[iMarker]*UnitNormal[1] ) / AveragedFlux[iMarker][0];
-//              AveragedEnthalpy[iMarker] = FluidModel->GetStaticEnergy() + AveragedPressure[iMarker]/AveragedDensity[iMarker];
-//
-////              cout << " pressure_mixing: " << AveragedPressure[iMarker];
-////              cout << " density_mixing : " << AveragedDensity[iMarker] << endl;
-////    	  	  getchar();
-//		  }
-//		  else {
-//			  AveragedFlux[iMarker][0] = TotalMassFlux[iMarker]/TotalArea;
-//			  AveragedFlux[iMarker][1] = TotalMomtXFlux[iMarker]/TotalArea;
-//			  AveragedFlux[iMarker][2] = TotalMomtYFlux[iMarker]/TotalArea;
-//			  AveragedFlux[iMarker][3] = TotalMomtZFlux[iMarker]/TotalArea;
-//			  AveragedFlux[iMarker][4] = TotalEnergyFlux[iMarker]/TotalArea;
-//			  double val_init_pressure = TotalAreaPressure/TotalArea;
-//
-//			  MixedOut_Average (val_init_pressure, AveragedFlux[iMarker], UnitNormal, &AveragedPressure[iMarker], &AveragedDensity[iMarker]);
-//			  FluidModel->SetTDState_Prho(AveragedPressure[iMarker], AveragedDensity[iMarker]);
-//			  AveragedVelocity[iMarker][0] = ( AveragedFlux[iMarker][1] - AveragedPressure[iMarker]*UnitNormal[0] ) / AveragedFlux[iMarker][0];
-//			  AveragedVelocity[iMarker][1] = ( AveragedFlux[iMarker][2] - AveragedPressure[iMarker]*UnitNormal[1] ) / AveragedFlux[iMarker][0];
-//			  AveragedVelocity[iMarker][2] = ( AveragedFlux[iMarker][3] - AveragedPressure[iMarker]*UnitNormal[2] ) / AveragedFlux[iMarker][0];
-//              AveragedEnthalpy[iMarker] = FluidModel->GetStaticEnergy() + AveragedPressure[iMarker]/AveragedDensity[iMarker];
-//
-//		  }
-//
-//		  /*--- S coefficients ---*/
-//
-////		  if  (Monitoring == YES) {
-////			  if (nDim == 2) {
-////			  }
-////			  if (nDim == 3) {
-////			  }
-//
-//        /*--- Compute the coefficients per surface ---*/
-//
-////			  for (iMarker_Monitoring = 0; iMarker_Monitoring < config->GetnMarker_Monitoring(); iMarker_Monitoring++) {
-////				  Monitoring_Tag = config->GetMarker_Monitoring(iMarker_Monitoring);
-////				  Marker_Tag = config->GetMarker_All_TagBound(iMarker);
-////				  if (Marker_Tag == Monitoring_Tag) {
-////					  Surface_Pressure_Mix[iMarker_Monitoring] = Pressure_Mix[iMarker];
-////				  }
-////			  }
-//
-////		  }
-//	 }
-//
-//  }
 
 
   unsigned long iVertex, iPoint;
   unsigned short iDim, iVar;
-  double Pressure = 0.0, Density = 0.0, Enthalpy = 0.0, Entropy = 0.0, *Velocity = NULL, *Normal = NULL, Area, TotalArea, *UnitNormal = NULL;
+  double Pressure = 0.0, Density = 0.0, Temperature = 0.0, Enthalpy = 0.0, Entropy = 0.0, *Velocity = NULL, *Normal = NULL, Area, TotalArea, *UnitNormal = NULL;
+
 
 
 
@@ -4660,6 +4512,13 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
   TotalEnergyFlux[val_Marker] = 0.0;
   TotalArea = 0.0;
 
+  AveragedPressure[val_Marker] = 0.0;
+  AveragedTemperature[val_Marker] = 0.0;
+
+  for (iDim = 0; iDim < nDim; iDim++) {
+      AveragedVelocity[val_Marker][iDim] = 0.0;
+    }
+
   /*--- Loop over the vertices to compute the averaged quantities ---*/
 
   for (iVertex = 0; iVertex < geometry->GetnVertex(val_Marker); iVertex++) {
@@ -4672,6 +4531,8 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 	  Pressure = solver[FLOW_SOL]->node[iPoint]->GetPressure();
 	  Density = solver[FLOW_SOL]->node[iPoint]->GetDensity();
 	  Enthalpy = solver[FLOW_SOL]->node[iPoint]->GetEnthalpy();
+	  Temperature = solver[FLOW_SOL]->node[iPoint]->GetTemperature();
+
 //	  cout<<"primitive " <<Pressure <<" "<<Pressure <<" "<< Enthalpy <<endl;
 
 
@@ -4702,11 +4563,20 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 			  TotalMomFlux[val_Marker][iDim] += Area*(Density*VelNormal*Velocity[iDim] + Pressure*UnitNormal[iDim] );
 		  }
 		  TotalEnergyFlux[val_Marker] += Area*(Density*VelNormal*(Enthalpy+VelSq/2) );
+
+		  /*--- Compute the integral of quantities on the Area ---*/
+
+		  AveragedPressure[val_Marker] += Area*Pressure;
+		  AveragedTemperature[val_Marker] += Area*Temperature;
+
+		  for (iDim = 0; iDim < nDim; iDim++) {
+			AveragedVelocity[val_Marker][iDim] += Area*Velocity[iDim];
+		  }
+
 		  TotalArea += Area;
 
-
-
 		  }
+
       }
 
 
@@ -4718,7 +4588,15 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 	  }
 	  AveragedFlux[val_Marker][nDim+1] = TotalEnergyFlux[val_Marker]/TotalArea;
 
+	  AveragedPressure[val_Marker] /= TotalArea;
+	  AveragedTemperature[val_Marker] /= TotalArea;
 
+	  for (iDim = 0; iDim < nDim; iDim++) {
+		AveragedVelocity[val_Marker][iDim] /= TotalArea;
+	  }
+
+	  cout << AveragedPressure[val_Marker] <<" " <<AveragedTemperature[val_Marker]<< endl;
+	  cout << AveragedVelocity[val_Marker][0]*UnitNormal[0]<< " "<< AveragedVelocity[val_Marker][1]*UnitNormal[1]<< endl;
 
   delete [] Velocity;
   delete[] UnitNormal;
@@ -7508,7 +7386,7 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 	        /*--- Index of the closest interior node ---*/
 	        Point_Normal = geometry->vertex[val_marker][iVertex]->GetNormal_Neighbor();
 
-	        /*--- Normal vector for this vertex (negate for outward convention) ---*/
+	        /*--- Normal vector for this vertex (negative for outward convention) ---*/
 	        geometry->vertex[val_marker][iVertex]->GetNormal(Normal);
 	        for (iDim = 0; iDim < nDim; iDim++) Normal[iDim] = -Normal[iDim];
 	        conv_numerics->SetNormal(Normal);
@@ -7579,7 +7457,7 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 			{
 	        	delta_u[iVar] =0.0;
 	        	for (jVar = 0; jVar < nVar; jVar++){
-	        		delta_u[iVar]+=invProjJac_i[iVar][jVar]*delta_e[jVar];
+	        		delta_u[iVar]+=invProjJac_i[iVar][jVar]*0.1*delta_e[jVar];
 	        	}
 	        	cout << "delta_u "<< delta_u[iVar]<<endl;
 			}
@@ -7595,7 +7473,7 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 			{
 				dw[iVar] = 0;
 				for (jVar = 0; jVar < nVar; jVar++)
-					dw[iVar] += invP_Tensor[iVar][jVar]*0.1*delta_u[jVar];
+					dw[iVar] += invP_Tensor[iVar][jVar]*delta_u[jVar];
 
 			}
 
@@ -7637,6 +7515,11 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 
 			Kappa_mix = FluidModel->GetdPde_rho() / Density_mix;
 			Chi_mix = FluidModel->GetdPdrho_e() - Kappa_mix * StaticEnergy_mix;
+
+			cout<<"Pressure mix "  << Pressure_mix<<endl;
+			cout<<"Density mix "  << Density_mix<<endl;
+			cout<<"Velocity_mix x "  << Velocity_mix[0]<<endl;
+			cout<<"Velocity_mix y "  << Velocity_mix[1]<<endl;
 
 			/*--- Compute the residuals ---*/
 			conv_numerics->GetInviscidProjFlux(&Density_mix, Velocity_mix, &Pressure_mix, &Enthalpy_mix, Normal, Residual);
