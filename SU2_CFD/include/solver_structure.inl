@@ -741,8 +741,9 @@ inline double *CEulerSolver::GetAveragedFlux(unsigned short val_Marker){return A
 inline double *CEulerSolver::GetExtAveragedFlux(unsigned short val_Marker){return ExtAveragedFlux[val_Marker];}
 
 inline void CEulerSolver::SetExtAveragedFlux(unsigned short val_Marker, double* averaged_ext_flux){ 
-	ExtAveragedFlux[val_Marker] = averaged_ext_flux;
-	cout<<ExtAveragedFlux[val_Marker][0]<<endl;
+	unsigned short iVar;
+	for(iVar = 0; iVar<nVar; iVar++)
+		ExtAveragedFlux[val_Marker][iVar] = -averaged_ext_flux[iVar];
 	}
 
 inline double CEulerSolver::GetTotal_CFreeSurface() { return Total_CFreeSurface; }

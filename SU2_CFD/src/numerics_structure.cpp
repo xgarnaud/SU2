@@ -549,8 +549,8 @@ void CNumerics::GetInviscidProjJac_inv(double **Proj_Jac, double **inv_Proj_Jac)
 //			cout << Proj_Jac[iVar][jVar]<<endl;
 //			cout << LU[iVar][jVar]<<endl;
 		}
-//	cout << test<< endl;
-//	test = 0.0;
+		cout << test<< endl;
+		test = 0.0;
 	}
 	for (iVar = 0; iVar < nVar; iVar++)
     {

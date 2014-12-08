@@ -4658,7 +4658,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
     TotalMomFlux[val_Marker][iDim] = 0.0;
   }
   TotalEnergyFlux[val_Marker] = 0.0;
-
+  TotalArea = 0.0;
 
   /*--- Loop over the vertices to compute the averaged quantities ---*/
 
@@ -4672,6 +4672,7 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 	  Pressure = solver[FLOW_SOL]->node[iPoint]->GetPressure();
 	  Density = solver[FLOW_SOL]->node[iPoint]->GetDensity();
 	  Enthalpy = solver[FLOW_SOL]->node[iPoint]->GetEnthalpy();
+//	  cout<<"primitive " <<Pressure <<" "<<Pressure <<" "<< Enthalpy <<endl;
 
 
 
@@ -4681,14 +4682,17 @@ void CEulerSolver::Mixing_Process(CGeometry *geometry, CSolver **solver, CConfig
 
 		  Normal = geometry->vertex[val_Marker][iVertex]->GetNormal();
 
-		  Area = 0.0; for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim]*Normal[iDim]; Area = sqrt(Area);
+//		  cout << Normal[0]<<" "<< Normal[1]<<" " << config->GetMarker_All_TagBound(val_Marker) <<endl;
 
+		  Area = 0.0; for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim]*Normal[iDim]; Area = sqrt(Area);
+//		  cout<< "Area "<< Area << endl;
 		  double VelNormal = 0.0, VelSq = 0.0;
 		  for (iDim = 0; iDim < nDim; iDim++) {
 			  UnitNormal[iDim] = Normal[iDim]/Area;
 			  Velocity[iDim] = solver[FLOW_SOL]->node[iPoint]->GetPrimitive(iDim+1);
 			  VelNormal += UnitNormal[iDim]*Velocity[iDim];
 			  VelSq += Velocity[iDim]*Velocity[iDim];
+//			  cout << "velocity: " <<  Velocity[iDim] << endl;
 		  }
 
 		  /*--- Compute the integral fluxes for the boundaries of interest ---*/
@@ -6975,7 +6979,7 @@ void CEulerSolver::BC_Riemann(CGeometry *geometry, CSolver **solver_container,
         /*--- Index of the closest interior node ---*/
         Point_Normal = geometry->vertex[val_marker][iVertex]->GetNormal_Neighbor();
 
-        /*--- Normal vector for this vertex (negate for outward convention) ---*/
+        /*--- Normal vector for this vertex (negative for outward convention) ---*/
         geometry->vertex[val_marker][iVertex]->GetNormal(Normal);
         for (iDim = 0; iDim < nDim; iDim++) Normal[iDim] = -Normal[iDim];
         conv_numerics->SetNormal(Normal);
@@ -7486,8 +7490,9 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 	AvgIntFlux = GetAveragedFlux(val_marker);
 	AvgExtFlux = GetExtAveragedFlux(val_marker);
 	for(iVar = 0; iVar< nVar; iVar++){
-		delta_e[iVar] = AvgIntFlux[iVar] - AvgExtFlux[iVar];
-		cout << AvgIntFlux[iVar] << " "<< AvgExtFlux[iVar]<<endl;
+		delta_e[iVar] = (AvgIntFlux[iVar] - AvgExtFlux[iVar]);
+//		cout << AvgIntFlux[iVar] << " "<< AvgExtFlux[iVar]<<endl;
+	cout <<"delta_e "<< delta_e[iVar]<<endl;
 	}
 
 	/*--- Loop over all the vertices on this boundary marker ---*/
@@ -7576,7 +7581,7 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 	        	for (jVar = 0; jVar < nVar; jVar++){
 	        		delta_u[iVar]+=invProjJac_i[iVar][jVar]*delta_e[jVar];
 	        	}
-
+	        	cout << "delta_u "<< delta_u[iVar]<<endl;
 			}
 
 	        u_i[0] = Density_i;
@@ -7590,7 +7595,7 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 			{
 				dw[iVar] = 0;
 				for (jVar = 0; jVar < nVar; jVar++)
-					dw[iVar] += invP_Tensor[iVar][jVar]*delta_u[jVar];
+					dw[iVar] += invP_Tensor[iVar][jVar]*0.1*delta_u[jVar];
 
 			}
 
@@ -7609,7 +7614,8 @@ void CEulerSolver::BC_MixingPlane(CGeometry *geometry, CSolver **solver_containe
 				}
 			}
 
-
+	cout << u_i[0]<< " "<< u_i[1]<<" "<< u_i[2]<<endl;
+	cout << u_mix[0]<< " "<< u_mix[1]<<" "<< u_mix[2]<<endl;
 
 	/*--- Compute the thermodynamic state in u_mix ---*/
 			Density_mix = u_mix[0];
