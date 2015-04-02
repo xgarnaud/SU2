@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
   
   /*--- For the time-spectral solver, set the grid node velocities. ---*/
   
-  if (config_container[ZONE_0]->GetUnsteady_Simulation() == TIME_SPECTRAL)
+  if (config_container[ZONE_0]->GetUnsteady_Simulation() == TIME_SPECTRAL && !(config_container[ZONE_0]->GetKind_GridMovement(ZONE_0) == NONE))
     SetTimeSpectral_Velocities(geometry_container, config_container, nZone);
   
   /*--- Coupling between zones (limited to two zones at the moment) ---*/

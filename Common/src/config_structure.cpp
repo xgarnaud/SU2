@@ -1941,45 +1941,57 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
    The largest period of motion is the one to be used for time-spectral calculations. ---*/
   
   if (Unsteady_Simulation == TIME_SPECTRAL) {
+      
+      if (~Grid_Movement || (Kind_GridMovement[ZONE_0] == NONE)) {
+          /* No grid movement - Time period hardcoded for now */
+          TimeSpectral_Period = 0.2;
+      }
+      
+      else {
+          
+          /* If grid movement - calulate period from pitching/plunging/rotation */
+          unsigned short N_MOTION_TYPES = 3;
+          double *periods;
+          periods = new double[N_MOTION_TYPES];
+          
+          /*--- rotation: ---*/
+          
+          double Omega_mag_rot = sqrt(pow(Rotation_Rate_X[ZONE_0],2)+pow(Rotation_Rate_Y[ZONE_0],2)+pow(Rotation_Rate_Z[ZONE_0],2));
+          if (Omega_mag_rot > 0)
+              periods[0] = 2*PI_NUMBER/Omega_mag_rot;
+          else
+              periods[0] = 0.0;
+          
+          /*--- pitching: ---*/
+          
+          double Omega_mag_pitch = sqrt(pow(Pitching_Omega_X[ZONE_0],2)+pow(Pitching_Omega_Y[ZONE_0],2)+pow(Pitching_Omega_Z[ZONE_0],2));
+          if (Omega_mag_pitch > 0)
+              periods[1] = 2*PI_NUMBER/Omega_mag_pitch;
+          else
+              periods[1] = 0.0;
+          
+          /*--- plunging: ---*/
+          
+          double Omega_mag_plunge = sqrt(pow(Plunging_Omega_X[ZONE_0],2)+pow(Plunging_Omega_Y[ZONE_0],2)+pow(Plunging_Omega_Z[ZONE_0],2));
+          if (Omega_mag_plunge > 0)
+              periods[2] = 2*PI_NUMBER/Omega_mag_plunge;
+          else
+              periods[2] = 0.0;
+          
+          /*--- determine which period is largest ---*/
+          
+          unsigned short iVar;
+          TimeSpectral_Period = 0.0;
+          for (iVar = 0; iVar < N_MOTION_TYPES; iVar++) {
+              if (periods[iVar] > TimeSpectral_Period)
+                  TimeSpectral_Period = periods[iVar];
+          }
+          
+          delete periods;
+      }
+          
     
-    unsigned short N_MOTION_TYPES = 3;
-    double *periods;
-    periods = new double[N_MOTION_TYPES];
     
-    /*--- rotation: ---*/
-    
-    double Omega_mag_rot = sqrt(pow(Rotation_Rate_X[ZONE_0],2)+pow(Rotation_Rate_Y[ZONE_0],2)+pow(Rotation_Rate_Z[ZONE_0],2));
-    if (Omega_mag_rot > 0)
-      periods[0] = 2*PI_NUMBER/Omega_mag_rot;
-    else
-      periods[0] = 0.0;
-    
-    /*--- pitching: ---*/
-    
-    double Omega_mag_pitch = sqrt(pow(Pitching_Omega_X[ZONE_0],2)+pow(Pitching_Omega_Y[ZONE_0],2)+pow(Pitching_Omega_Z[ZONE_0],2));
-    if (Omega_mag_pitch > 0)
-      periods[1] = 2*PI_NUMBER/Omega_mag_pitch;
-    else
-      periods[1] = 0.0;
-    
-    /*--- plunging: ---*/
-    
-    double Omega_mag_plunge = sqrt(pow(Plunging_Omega_X[ZONE_0],2)+pow(Plunging_Omega_Y[ZONE_0],2)+pow(Plunging_Omega_Z[ZONE_0],2));
-    if (Omega_mag_plunge > 0)
-      periods[2] = 2*PI_NUMBER/Omega_mag_plunge;
-    else
-      periods[2] = 0.0;
-    
-    /*--- determine which period is largest ---*/
-    
-    unsigned short iVar;
-    TimeSpectral_Period = 0.0;
-    for (iVar = 0; iVar < N_MOTION_TYPES; iVar++) {
-      if (periods[iVar] > TimeSpectral_Period)
-        TimeSpectral_Period = periods[iVar];
-    }
-    
-    delete periods;
     
   }
   

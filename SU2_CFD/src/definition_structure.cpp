@@ -78,6 +78,10 @@ unsigned short GetnZone(string val_mesh_filename, unsigned short val_format, CCo
       break;
       
   }
+    
+    if (config->GetUnsteady_Simulation() == TIME_SPECTRAL) {
+        nZone = config->GetnTimeInstances();
+    }
   
   return (unsigned short) nZone;
 }
