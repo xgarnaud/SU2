@@ -18,7 +18,7 @@ B      = 5.5
 E      = np.exp(kappa*B)
 plt.semilogx(uPlus_cfl3d + 1./E*(np.exp(kappa*uPlus_cfl3d)-1.-(kappa*uPlus_cfl3d)-(kappa*uPlus_cfl3d)**2/2.-(kappa*uPlus_cfl3d)**3/6.),uPlus_cfl3d,'r--',label = 'Spalding')
 
-names = ["h_1e-6","h_1e-5","h_1e-4","h_1e-3"]
+names = ["h_1e-3"]#["h_1e-6","h_1e-5","h_1e-4","h_1e-3"]
 
 for name in names:
     tmp = np.loadtxt('%s/slice_x=1.dat'%name)
