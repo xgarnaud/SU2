@@ -11173,6 +11173,15 @@ void CNSSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container, C
 //	  if (compressible && !ideal_gas) SetSecondary_Gradient_LS(geometry, config);
   }
   
+  for (unsigned short iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++)
+    {
+      switch (config->GetMarker_All_KindBC(iMarker)) {
+      case HEAT_FLUX:
+	Fix_Gradients_WM(geometry, solver_container, NULL, NULL, config, iMarker);
+	break;
+      }  
+    }
+
   /*--- Compute the limiter in case we need it in the turbulence model
    or to limit the viscous terms (check this logic with JST and 2nd order turbulence model) ---*/
 
@@ -12471,6 +12480,199 @@ void CNSSolver::BC_Isothermal_Wall(CGeometry *geometry, CSolver **solver_contain
         }
       }
 
+    }
+  }
+}
+
+void CNSSolver::Fix_Gradients_WM(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker) {
+
+  unsigned short iDim, jDim, iVar, jVar;
+  unsigned long iVertex, iPoint, Point_Normal, total_index;
+
+  double Wall_HeatFlux, dist_ij, *Coord_i, *Coord_j, theta2;
+  double thetax, thetay, thetaz, etax, etay, etaz, pix, piy, piz, factor;
+  double ProjGridVel, *GridVel, GridVel2, *Normal, Area, Pressure = 0.0;
+  double total_viscosity, div_vel, Density, tau_vel[3] = {0.0, 0.0, 0.0}, UnitNormal[3] = {0.0, 0.0, 0.0};
+  double laminar_viscosity = 0.0, eddy_viscosity = 0.0, Grad_Vel[3][3] = {{0.0,0.0,0.0},{0.0,0.0,0.0},{0.0,0.0,0.0}},
+  tau[3][3] = {{0.0,0.0,0.0},{0.0,0.0,0.0},{0.0,0.0,0.0}};
+  double delta[3][3] = {{1.0, 0.0, 0.0},{0.0,1.0,0.0},{0.0,0.0,1.0}};
+
+  bool implicit       = (config->GetKind_TimeIntScheme_Flow() == EULER_IMPLICIT);
+  bool compressible   = (config->GetKind_Regime() == COMPRESSIBLE);
+  bool incompressible = (config->GetKind_Regime() == INCOMPRESSIBLE);
+  bool freesurface    = (config->GetKind_Regime() == FREESURFACE);
+  bool grid_movement  = config->GetGrid_Movement();
+
+  unsigned short iNode;
+  unsigned long iPoint_Neighbor;
+  double unitNormal[3],neighborVel[3],Vorticity[3], unitTan[3];
+  double neighborP,neighborT,neighborVelTang[3],neighborWallProj[3];
+  // double Tau[3][3],TauElem[3],TauTangent[3],**Grad_PrimVar;
+  double **Grad_PrimVar;
+
+  /*--- Identify the boundary by string name ---*/
+  
+  string Marker_Tag = config->GetMarker_All_TagBound(val_marker);
+
+  /*--- Get the specified wall heat flux from config ---*/
+  
+  Wall_HeatFlux = config->GetWall_HeatFlux(Marker_Tag);
+
+  /*--- Loop over all of the vertices on this boundary marker ---*/
+  
+  for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
+    iPoint = geometry->vertex[val_marker][iVertex]->GetNode();
+
+    /*--- Check if the node belongs to the domain (i.e, not a halo node) ---*/
+    if (geometry->node[iPoint]->GetDomain()) {
+
+      /*--- the wall model ---*/
+      const double *vertexCoords = geometry->node[iPoint]->GetCoord();
+
+      // vertex coordinates & normal
+      const double *vertexNormal = geometry->vertex[val_marker][iVertex]->GetNormal();
+    
+      double vertexArea = 0.0;
+      for (iDim = 0; iDim < nDim; iDim++)
+      	vertexArea += vertexNormal[iDim]*vertexNormal[iDim];
+      vertexArea = sqrt (vertexArea);
+
+      for (iDim = 0; iDim < nDim; iDim++)
+      	unitNormal[iDim] = -vertexNormal[iDim]/vertexArea;
+
+      // Wall shear (laminar)
+      Density  = node[iPoint]->GetSolution(0);
+      const double mu        = node[iPoint]->GetLaminarViscosity();
+      const double nu        = mu/Density;
+
+      double weight = 0.0;
+      double tauw_avg = 0.0;
+      double tauw_lam_avg = 0.0;
+
+      for(iNode = 0; iNode < geometry->node[iPoint]->GetnPoint(); iNode++) {
+      	iPoint_Neighbor = geometry->node[iPoint]->GetPoint(iNode);
+      	/*--- Check if the node belongs to the domain (i.e, not a halo node) ---*/
+    
+      	// check if this is a wall point first
+      	// if (!geometry->node[iPoint_Neighbor]->GetBoundary()){
+
+	/*--- Get coordinates of the current vertex and nearest normal point ---*/
+	double *neighborCoords = geometry->node[iPoint_Neighbor]->GetCoord();
+	
+	// Neighbor point flow variables
+	for (iDim = 0; iDim < nDim; iDim++)
+	  neighborVel[iDim] = solver_container[FLOW_SOL]->node[iPoint_Neighbor]->GetVelocity(iDim);
+	
+	double neighborVelNormal = 0.0;
+	for (iDim = 0; iDim < nDim; iDim++)
+	  neighborVelNormal += neighborVel[iDim] * unitNormal[iDim];
+	for (iDim = 0; iDim < nDim; iDim++)
+	  neighborVelTang[iDim] = neighborVel[iDim] - neighborVelNormal*unitNormal[iDim];
+	
+	double neighborVelTangMod = 0.0;
+	for (iDim = 0; iDim < nDim; iDim++)
+	  neighborVelTangMod += neighborVelTang[iDim]*neighborVelTang[iDim];
+	neighborVelTangMod = sqrt(neighborVelTangMod);
+	
+	if (neighborVelTangMod > 1e-10){ // not a wall point
+      	  for (iDim = 0; iDim < nDim; iDim++)
+      	    unitTan[iDim] = neighborVelTang[iDim]/neighborVelTangMod;
+
+      	  double neighborWallDist = 0.0;
+      	  for (iDim = 0; iDim < nDim; iDim++)
+      	    neighborWallDist += unitNormal[iDim] * (neighborCoords[iDim] - vertexCoords[iDim]);
+
+      	  for (iDim = 0; iDim < nDim; iDim++)
+      	    neighborWallProj[iDim] = neighborCoords[iDim] - unitNormal[iDim]*neighborWallDist;
+
+      	  double neighborTanDist = 0.0;
+      	  for (iDim = 0; iDim < nDim; iDim++)
+      	    neighborTanDist += (neighborWallProj[iDim] - vertexCoords[iDim])*(neighborWallProj[iDim] - vertexCoords[iDim]);
+
+      	  neighborWallDist = abs(neighborWallDist);
+      	  neighborTanDist  = sqrt(neighborTanDist);
+	      
+      	  const double nodeWeight = 1./(neighborTanDist + 1e-10);
+      	  weight += nodeWeight;
+
+      	  const double kappa = .41;
+      	  const double B = 5.5;
+      	  const double E = exp(kappa*B);
+
+	  const double nut_old   = node[iPoint_Neighbor]->GetLaminarViscosity()/Density;
+      	  const double uTau_old  = sqrt((nut_old+nu) * abs(neighborVelTangMod/neighborWallDist));
+
+      	  double uTau = uTau_old;
+      	  double err = 1.;
+
+      	  double uPlus,yPlus;
+      	  double kUu,fkUu;
+
+      	  if (neighborWallDist > 1e-10)
+      	    while (err > 1e-10)
+      	      {
+      		uPlus = neighborVelTangMod/uTau;
+      		yPlus = neighborWallDist*uTau/nu;
+      		kUu  = min(kappa*uPlus, 50.);
+                fkUu = exp(kUu) - 1 - kUu*(1 + 0.5*kUu);
+
+                const double f =
+      		  - yPlus
+      		  + uPlus
+      		  + 1/E*(fkUu - 1.0/6.0*kUu*kUu*kUu);
+
+                const double df =
+      		  neighborWallDist/nu
+                  + uPlus/uTau * (1.+ kappa/E*fkUu);
+
+      		const double du = f / df;
+        
+      		err = fabs(du/uTau);
+
+      		uTau += du;
+      	      }
+      	  else
+      	    uTau = 0.0;
+
+	  const double dyp_dup      = 1. + kappa/E*(exp(kUu)-1.-kUu-kUu*kUu/2.);
+
+	  double tauw          = uTau*uTau *Density;
+	  double tauw_lam      = Density * nu * fabs(neighborVelTangMod/neighborWallDist);
+
+	  // tauw = max(fabs(tauw_lam),fabs(tauw));
+
+	  tauw_avg     += tauw     * nodeWeight;
+	  tauw_lam_avg += tauw_lam * nodeWeight;
+
+	  Grad_PrimVar  = node[iPoint_Neighbor]->GetGradient_Primitive();
+	  tauw = min(1e5*fabs(tauw_lam),fabs(tauw));
+
+	  // const double mut       = node[iPoint_Neighbor]->GetEddyViscosity();
+
+	  for (iDim = 0; iDim < nDim; iDim++) 
+	    for (jDim = 0 ; jDim < nDim; jDim++) 
+	      Grad_PrimVar[iDim+1][jDim] = -unitTan[iDim]*unitNormal[jDim]*tauw/mu/dyp_dup ;//(mu+mut);
+
+      	}
+      }
+
+      if (fabs(weight) > 1e-12){
+	tauw_avg /= weight;
+	tauw_lam_avg /= weight;
+      }
+
+      Grad_PrimVar  = node[iPoint]->GetGradient_Primitive();
+
+      tauw_avg = min(1e5*fabs(tauw_lam_avg),fabs(tauw_avg));
+
+      // if (tauw_avg < .1)
+      // 	cout << tauw_avg << " " << weight << " " << vertexCoords[0] << endl;
+
+      for (iDim = 0; iDim < nDim; iDim++) 
+	for (jDim = 0 ; jDim < nDim; jDim++) 
+	  Grad_PrimVar[iDim+1][jDim]  = -unitTan[iDim]*unitNormal[jDim] * tauw_avg / mu;
+
+           
     }
   }
 }

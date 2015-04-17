@@ -3761,6 +3761,8 @@ public:
    * \return Value of the Omega_Max
    */
   void SetOmega_Max(double val_omega_max);
+
+  void Fix_Gradients_WM(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker);
   
 };
 
