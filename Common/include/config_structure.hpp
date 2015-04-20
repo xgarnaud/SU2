@@ -691,6 +691,7 @@ private:
   Gust_Begin_Loc;             /*!< \brief Location at which the gust begins. */
   long Visualize_CV; /*!< \brief Node number for the CV to be visualized */
   bool ExtraOutput;
+  bool Wall_Functions; /*!< \brief Use wall functions with the turbulence model */
   unsigned long Nonphys_Points, /*!< \brief Current number of non-physical points in the solution. */
   Nonphys_Reconstr;      /*!< \brief Current number of non-physical reconstructions for 2nd-order upwinding. */
   bool ParMETIS;      /*!< \brief Boolean for activating ParMETIS mode (while testing). */
@@ -5145,6 +5146,11 @@ public:
 	 * \return Node number of the CV to visualize.
 	 */
 	long GetVisualize_CV(void);
+  /*!                                                                                                                                                                                                                                        
+   * \brief Get information about whether to use wall functions.                                                                                                                                                                       
+   * \return <code>TRUE</code> if wall functions are on; otherwise <code>FALSE</code>.                                                                                                                                                 
+   */
+  bool GetWall_Functions(void);
 
   /*!
 	 * \brief Get information about whether to use fixed CL mode.

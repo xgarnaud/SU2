@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
 
 from vtk import vtkUnstructuredGridReader,vtkProbeFilter,vtkLineSource
 from vtk.util import numpy_support as VN
@@ -85,7 +86,7 @@ def readvars(reader,variables):
 extra_out = False
 
 d    = 'h_1e-3_tri'
-h0   = 1e-3
+h0   = 2e-3
 
 # d    = 'h_1e-6'
 # h0   = 1e-6
@@ -98,22 +99,30 @@ reader2d = readVTK('%s/flow.vtk'%d)
 reader1d = readVTK('%s/surface_flow.vtk'%d)
 
 x,[yPlus,Cf] = readvars(reader1d,['Y_Plus','Skin_Friction_Coefficient'])
+Cf_i    = interp1d(x,Cf)
+yPlus_i = interp1d(x,yPlus)
 
-line=createLine(p1,p2,numPoints = 2)
-points,Cf  =  probeOverLine(line,reader1d,'Skin_Friction_Coefficient')
-points,yPlus  =  probeOverLine(line,reader1d,'Y_Plus')
-points,mu  =  probeOverLine(line,reader1d,'Laminar_Viscosity')
+Cf = Cf_i(1.0)
 
-Cf     = Cf[0]
-mu     = mu[0]
+# print x,yPlus,Cf
+# line=createLine(p1,p2,numPoints = 2)
+# points,Cf  =  probeOverLine(line,reader1d,'Skin_Friction_Coefficient')
+# points,yPlus  =  probeOverLine(line,reader1d,'Y_Plus')
+# points,mu  =  probeOverLine(line,reader1d,'Laminar_Viscosity')
 
-p1=[1.,0   ,0.0]
+# print points,Cf
+# Cf     = Cf[0]
+# mu     = mu[0]
+# print Cf,mu,yPlus
+
+p1=[1.,0.  ,0.0]
 p2=[1.,0.05,0.0]
 
 line=createLine(p1,p2,numPoints = int(0.05/h0))
 points,rho  =  probeOverLine(line,reader2d,'Conservative_1')
 points,rhoU =  probeOverLine(line,reader2d,'Conservative_2')
 points,mut  =  probeOverLine(line,reader2d,'Eddy_Viscosity')
+points,mu   =  probeOverLine(line,reader2d,'Laminar_Viscosity')
 
 if extra_out:
     points,prod       =  probeOverLine(line,reader2d,'Production')
@@ -124,9 +133,9 @@ y1    = points[1,1]
 U1    = rhoU[1] / rho[1]
 rho0  = rho[0]
 
-mu0   = mu
+mu0   = mu[0]
 mut0  = mut[0]
-nu    = mu /rho0
+nu    = mu0 /rho0
 
 wallShearStress = (mu0 + mut0) * U1 / y1
 
@@ -144,7 +153,7 @@ npts = len(points[:,1])
 f = open('%s/slice_x=1.dat'%d,'w')
 for i in range(npts):
     if extra_out:
-        f.write('%g %g %g %g %g %g %g %g %g\n'%(points[i,1],rhoU[i]/rho[i],mut[i],yPlus[i],uPlus[i],mut[i]/mu,prod[i],dest[i],crossprod[i]))
+        f.write('%g %g %g %g %g %g %g %g %g\n'%(points[i,1],rhoU[i]/rho[i],mut[i],yPlus[i],uPlus[i],mut[i]/mu[i],prod[i],dest[i],crossprod[i]))
     else:
-        f.write('%g %g %g %g %g %g\n'%(points[i,1],rhoU[i]/rho[i],mut[i],yPlus[i],uPlus[i],mut[i]/mu))
+        f.write('%g %g %g %g %g %g\n'%(points[i,1],rhoU[i]/rho[i],mut[i],yPlus[i],uPlus[i],mut[i]/mu[i]))
 f.close()

@@ -224,7 +224,8 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
   addMathProblemOption("MATH_PROBLEM" , Adjoint, false , Linearized, false, Restart_Flow, false);
   /*!\brief KIND_TURB_MODEL \n DESCRIPTION: Specify turbulence model \n Options: see \link Turb_Model_Map \endlink \n Default: NO_TURB_MODEL \ingroup Config*/
   addEnumOption("KIND_TURB_MODEL", Kind_Turb_Model, Turb_Model_Map, NO_TURB_MODEL);
-
+  /*!\brief WALL_FUNCTIONS \n DESCRIPTION: Use wall functions with the turbulence model */
+  addBoolOption("WALL_FUNCTIONS", Wall_Functions, false);
   /*!\brief KIND_TRANS_MODEL \n DESCRIPTION: Specify transition model OPTIONS: see \link Trans_Model_Map \endlink \n Default: NO_TRANS_MODEL \ingroup Config*/
   addEnumOption("KIND_TRANS_MODEL", Kind_Trans_Model, Trans_Model_Map, NO_TRANS_MODEL);
 
@@ -3453,6 +3454,11 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
           case SST:    cout << "Menter's SST"     << endl; break;
           case ML:     cout << "Machine Learning" << endl;break;
         }
+	cout << "Wall model: ";
+        if (Wall_Functions)
+	  cout << "YES" << endl;
+	else
+	  cout << "NO" << endl;
         break;
       case TNE2_EULER:
         cout << "Compressible TNE2 Euler equations." << endl;
