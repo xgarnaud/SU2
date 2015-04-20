@@ -12548,6 +12548,7 @@ void CNSSolver::Fix_Gradients_WM(CGeometry *geometry, CSolver **solver_container
       double weight = 0.0;
       double tauw_avg = 0.0;
       double tauw_lam_avg = 0.0;
+      double yPlus_avg = 0.0;
 
       for(iNode = 0; iNode < geometry->node[iPoint]->GetnPoint(); iNode++) {
       	iPoint_Neighbor = geometry->node[iPoint]->GetPoint(iNode);
@@ -12634,6 +12635,9 @@ void CNSSolver::Fix_Gradients_WM(CGeometry *geometry, CSolver **solver_container
       	  else
       	    uTau = 0.0;
 
+	  
+	  yPlus = neighborWallDist*uTau/nu;
+	  
 	  const double dyp_dup      = 1. + kappa/E*(exp(kUu)-1.-kUu-kUu*kUu/2.);
 
 	  double tauw          = uTau*uTau *Density;
@@ -12643,15 +12647,17 @@ void CNSSolver::Fix_Gradients_WM(CGeometry *geometry, CSolver **solver_container
 
 	  tauw_avg     += tauw     * nodeWeight;
 	  tauw_lam_avg += tauw_lam * nodeWeight;
+	  yPlus_avg    += yPlus    * nodeWeight;
 
 	  Grad_PrimVar  = node[iPoint_Neighbor]->GetGradient_Primitive();
 	  tauw = min(1e5*fabs(tauw_lam),fabs(tauw));
 
 	  // const double mut       = node[iPoint_Neighbor]->GetEddyViscosity();
 
-	  for (iDim = 0; iDim < nDim; iDim++) 
-	    for (jDim = 0 ; jDim < nDim; jDim++) 
-	      Grad_PrimVar[iDim+1][jDim] = -unitTan[iDim]*unitNormal[jDim]*tauw/mu/dyp_dup ;//(mu+mut);
+	  if (yPlus > .5) // Do not modify the gradients if clearly in the linear layer
+	    for (iDim = 0; iDim < nDim; iDim++) 
+	      for (jDim = 0 ; jDim < nDim; jDim++) 
+		Grad_PrimVar[iDim+1][jDim] = -unitTan[iDim]*unitNormal[jDim]*tauw/mu/dyp_dup ;//(mu+mut);
 
       	}
       }
@@ -12665,12 +12671,10 @@ void CNSSolver::Fix_Gradients_WM(CGeometry *geometry, CSolver **solver_container
 
       tauw_avg = min(1e5*fabs(tauw_lam_avg),fabs(tauw_avg));
 
-      // if (tauw_avg < .1)
-      // 	cout << tauw_avg << " " << weight << " " << vertexCoords[0] << endl;
-
-      for (iDim = 0; iDim < nDim; iDim++) 
-	for (jDim = 0 ; jDim < nDim; jDim++) 
-	  Grad_PrimVar[iDim+1][jDim]  = -unitTan[iDim]*unitNormal[jDim] * tauw_avg / mu;
+      if (yPlus_avg > .5)
+	for (iDim = 0; iDim < nDim; iDim++) 
+	  for (jDim = 0 ; jDim < nDim; jDim++) 
+	    Grad_PrimVar[iDim+1][jDim]  = -unitTan[iDim]*unitNormal[jDim] * tauw_avg / mu;
 
            
     }

@@ -3126,23 +3126,25 @@ void CAvgGrad_Flow::ComputeResidual(double *val_residual, double **val_Jacobian_
   }
   norm_avg_grad_vel = sqrt(norm_avg_grad_vel);
 
-  /*--- Modification of eddy viscosity to average the viscous flux ---*/
-  double tmp;
-  double norm_avg_grad_vel_mod = 0.;
-  for (iVar = 0; iVar < nDim+1; iVar++) {
-    for (iDim = 0; iDim < nDim; iDim++) {
-      tmp = 0.5*((Laminar_Viscosity_i+Eddy_Viscosity_i)*PrimVar_Grad_i[iVar][iDim] +
-		 (Laminar_Viscosity_j+Eddy_Viscosity_j)*PrimVar_Grad_j[iVar][iDim]
-		 ) / (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity);
-      if (iVar > 0)
-	norm_avg_grad_vel_mod += tmp*tmp;
+  if (Mean_Eddy_Viscosity > Mean_Laminar_Viscosity)
+    {
+      /*--- Modification of eddy viscosity to average the viscous flux ---*/
+      double tmp;
+      double norm_avg_grad_vel_mod = 0.;
+      for (iVar = 0; iVar < nDim+1; iVar++) {
+	for (iDim = 0; iDim < nDim; iDim++) {
+	  tmp = 0.5*((Laminar_Viscosity_i+Eddy_Viscosity_i)*PrimVar_Grad_i[iVar][iDim] +
+		     (Laminar_Viscosity_j+Eddy_Viscosity_j)*PrimVar_Grad_j[iVar][iDim]
+		     ) / (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity);
+	  if (iVar > 0)
+	    norm_avg_grad_vel_mod += tmp*tmp;
+	}
+      }
+      norm_avg_grad_vel_mod = sqrt(norm_avg_grad_vel_mod);
+
+      const double Mean_Total_Viscosity = (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity) * (norm_avg_grad_vel_mod / (norm_avg_grad_vel+1e-10));
+      Mean_Eddy_Viscosity = max(Mean_Total_Viscosity - Mean_Laminar_Viscosity,0.);
     }
-  }
-  norm_avg_grad_vel_mod = sqrt(norm_avg_grad_vel_mod);
-
-  const double Mean_Total_Viscosity = (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity) * (norm_avg_grad_vel_mod / (norm_avg_grad_vel+1e-10));
-  Mean_Eddy_Viscosity = max(Mean_Total_Viscosity - Mean_Laminar_Viscosity,0.);
-
   /*--- Get projected flux tensor ---*/
   
   GetViscousProjFlux(Mean_PrimVar, Mean_GradPrimVar, Mean_turb_ke, Normal, Mean_Laminar_Viscosity, Mean_Eddy_Viscosity);
@@ -3472,23 +3474,25 @@ void CAvgGradCorrected_Flow::ComputeResidual(double *val_residual, double **val_
 
   norm_avg_grad_vel = sqrt(norm_avg_grad_vel);
   
-  /*--- Modification of eddy viscosity to average the viscous flux ---*/
-  double tmp;
-  double norm_avg_grad_vel_mod = 0.;
-  for (iVar = 0; iVar < nDim+1; iVar++) {
-    for (iDim = 0; iDim < nDim; iDim++) {
-      tmp = 0.5*((Laminar_Viscosity_i+Eddy_Viscosity_i)*PrimVar_Grad_i[iVar][iDim] +
-		 (Laminar_Viscosity_j+Eddy_Viscosity_j)*PrimVar_Grad_j[iVar][iDim]
-		 ) / (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity);
-      if (iVar > 0)
-	norm_avg_grad_vel_mod += tmp*tmp;
+  if (Mean_Eddy_Viscosity > Mean_Laminar_Viscosity)
+    {
+      /*--- Modification of eddy viscosity to average the viscous flux ---*/
+      double tmp;
+      double norm_avg_grad_vel_mod = 0.;
+      for (iVar = 0; iVar < nDim+1; iVar++) {
+	for (iDim = 0; iDim < nDim; iDim++) {
+	  tmp = 0.5*((Laminar_Viscosity_i+Eddy_Viscosity_i)*PrimVar_Grad_i[iVar][iDim] +
+		     (Laminar_Viscosity_j+Eddy_Viscosity_j)*PrimVar_Grad_j[iVar][iDim]
+		     ) / (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity);
+	  if (iVar > 0)
+	    norm_avg_grad_vel_mod += tmp*tmp;
+	}
+      }
+      norm_avg_grad_vel_mod = sqrt(norm_avg_grad_vel_mod);
+
+      const double Mean_Total_Viscosity = (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity) * (norm_avg_grad_vel_mod / (norm_avg_grad_vel+1e-10));
+      Mean_Eddy_Viscosity = max(Mean_Total_Viscosity - Mean_Laminar_Viscosity,0.);
     }
-  }
-  norm_avg_grad_vel_mod = sqrt(norm_avg_grad_vel_mod);
-
-  const double Mean_Total_Viscosity = (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity) * (norm_avg_grad_vel_mod / (norm_avg_grad_vel+1e-10));
-  Mean_Eddy_Viscosity = max(Mean_Total_Viscosity - Mean_Laminar_Viscosity,0.);
-
   /*--- Get projected flux tensor ---*/
   
   GetViscousProjFlux(Mean_PrimVar, Mean_GradPrimVar, Mean_turb_ke, Normal, Mean_Laminar_Viscosity, Mean_Eddy_Viscosity);

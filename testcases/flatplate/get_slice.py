@@ -84,7 +84,7 @@ def readvars(reader,variables):
 
 extra_out = False
 
-d    = 'h_1e-3'
+d    = 'h_1e-3_tri'
 h0   = 1e-3
 
 # d    = 'h_1e-6'
