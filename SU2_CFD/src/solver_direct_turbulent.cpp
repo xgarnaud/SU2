@@ -1475,15 +1475,140 @@ void CTurbSASolver::BC_HeatFlux_Wall(CGeometry *geometry, CSolver **solver_conta
   unsigned long iPoint, iVertex;
   unsigned short iVar;
   
+  unsigned short iDim, jDim, jVar;
+  unsigned short iNode;
+  unsigned long iPoint_Neighbor;
+  double unitNormal[3],neighborVel[3],Vorticity[3], unitTan[3], unitTan_avg[3];
+  double neighborP,neighborT,neighborVelTang[3],neighborWallProj[3];
+  double Tau[3][3],TauElem[3],TauTangent[3],**Grad_PrimVar;
+
+
   for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
     iPoint = geometry->vertex[val_marker][iVertex]->GetNode();
     
     /*--- Check if the node belongs to the domain (i.e, not a halo node) ---*/
-    
     if (geometry->node[iPoint]->GetDomain()) {
       
-      /*--- Get the velocity vector ---*/
+      if (config->GetWall_Functions())
+	{
+	  /*--- the wall model ---*/
+	  const double *vertexCoords = geometry->node[iPoint]->GetCoord();
       
+	  // vertex coordinates & normal
+	  const double *vertexNormal = geometry->vertex[val_marker][iVertex]->GetNormal();
+    
+	  double vertexArea = 0.0;
+	  for (iDim = 0; iDim < nDim; iDim++)
+	    vertexArea += vertexNormal[iDim]*vertexNormal[iDim];
+	  vertexArea = sqrt (vertexArea);
+
+	  for (iDim = 0; iDim < nDim; iDim++)
+	    unitNormal[iDim] = -vertexNormal[iDim]/vertexArea;
+
+	  /*--- Evaluate Tau ---*/
+	  const double Density   = solver_container[FLOW_SOL]->node[iPoint]->GetSolution(0);
+	  const double mu        = solver_container[FLOW_SOL]->node[iPoint]->GetLaminarViscosity();
+	  const double nu        = mu/Density;
+
+	  Grad_PrimVar  = solver_container[FLOW_SOL]->node[iPoint]->GetGradient_Primitive();
+
+	  double div_vel = 0.0; 
+	  for (iDim = 0; iDim < nDim; iDim++) div_vel += Grad_PrimVar[iDim+1][iDim];
+      
+	  for (iDim = 0; iDim < nDim; iDim++) {
+	    for (jDim = 0 ; jDim < nDim; jDim++) {
+	      Tau[iDim][jDim] = mu*(Grad_PrimVar[jDim+1][iDim] + Grad_PrimVar[iDim+1][jDim]);
+	    }
+	    Tau[iDim][jDim] -= TWO3*mu*div_vel;
+	  }
+        
+	  /*--- Project Tau in each surface element ---*/
+      
+	  for (iDim = 0; iDim < nDim; iDim++) {
+	    TauElem[iDim] = 0.0;
+	    for (jDim = 0; jDim < nDim; jDim++) {
+	      TauElem[iDim] += Tau[iDim][jDim]*unitNormal[jDim];
+	    }
+	  }
+
+	  /*--- Compute wall shear stress (using the stress tensor) ---*/
+      
+	  double TauNormal = 0.0; 
+	  for (iDim = 0; iDim < nDim; iDim++) TauNormal += TauElem[iDim] * unitNormal[iDim];
+	  for (iDim = 0; iDim < nDim; iDim++) TauTangent[iDim] = TauElem[iDim] - TauNormal * unitNormal[iDim];
+      
+	  double WallShearStress = 0.0; 
+	  for (iDim = 0; iDim < nDim; iDim++) WallShearStress += TauTangent[iDim]*TauTangent[iDim];
+	  WallShearStress = sqrt(WallShearStress);
+
+	  for(iNode = 0; iNode < geometry->node[iPoint]->GetnPoint(); iNode++) {
+	    iPoint_Neighbor = geometry->node[iPoint]->GetPoint(iNode);
+
+	    Grad_PrimVar  = solver_container[FLOW_SOL]->node[iPoint_Neighbor]->GetGradient_Primitive();
+
+	    double div_vel = 0.0; for (iDim = 0; iDim < nDim; iDim++) div_vel += Grad_PrimVar[iDim+1][iDim];
+      
+	    for (iDim = 0; iDim < nDim; iDim++) {
+	      for (jDim = 0 ; jDim < nDim; jDim++) {
+		Tau[iDim][jDim] = mu*(Grad_PrimVar[jDim+1][iDim] + Grad_PrimVar[iDim+1][jDim]);
+	      }
+	      Tau[iDim][jDim] -= TWO3*mu*div_vel;
+	    }
+        
+	    /*--- Project Tau in each surface element ---*/
+      
+	    for (iDim = 0; iDim < nDim; iDim++) {
+	      TauElem[iDim] = 0.0;
+	      for (jDim = 0; jDim < nDim; jDim++) {
+		TauElem[iDim] += Tau[iDim][jDim]*unitNormal[jDim];
+	      }
+	    }
+
+	    /*--- Compute wall shear stress (using the stress tensor) ---*/
+      
+	    double TauNormal = 0.0; 
+	    for (iDim = 0; iDim < nDim; iDim++) TauNormal += TauElem[iDim] * unitNormal[iDim];
+	    for (iDim = 0; iDim < nDim; iDim++) TauTangent[iDim] = TauElem[iDim] - TauNormal * unitNormal[iDim];
+      
+	    double WallShearStress_Neighbor = 0.0; 
+	    for (iDim = 0; iDim < nDim; iDim++) WallShearStress_Neighbor += TauTangent[iDim]*TauTangent[iDim];
+	    WallShearStress_Neighbor = sqrt(WallShearStress_Neighbor);
+
+	    const double mut_mu  = WallShearStress_Neighbor < 1e-10 ? 0 : WallShearStress/WallShearStress_Neighbor - 1.;
+	
+	    double nuhat_neighbor = 0.;
+
+	    if (mut_mu > 0.)
+	      {
+		double Chi = mut_mu;
+		double Chi2;
+		double err = 1.;
+		const double cv1_3 = 7.1*7.1*7.1;
+		while (err > 1e-10)
+		  {
+		    Chi2 = Chi * Chi;
+		    double F  = Chi2*Chi2 - mut_mu*(Chi2 * Chi + cv1_3);
+		    double dF = 4.*Chi2*Chi - 3.* mut_mu*Chi2;
+		    Chi -= F / dF;
+		    err = abs(F / dF);
+		  }
+		nuhat_neighbor = Chi * nu;
+	      }
+
+
+	    for (iVar = 0; iVar < nVar; iVar++)
+	      Solution[iVar] = nuhat_neighbor;
+      
+	    node[iPoint_Neighbor]->SetSolution_Old(Solution);
+	    LinSysRes.SetBlock_Zero(iPoint_Neighbor);
+	
+	    /*--- includes 1 in the diagonal ---*/
+	
+	    Jacobian.DeleteValsRowi(iPoint_Neighbor);
+
+	  }
+
+	}
       for (iVar = 0; iVar < nVar; iVar++)
         Solution[iVar] = 0.0;
       

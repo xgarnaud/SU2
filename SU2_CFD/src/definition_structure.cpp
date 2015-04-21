@@ -866,14 +866,29 @@ void Numerics_Preprocessing(CNumerics ****numerics_container,
     if (compressible) {
       if (ideal_gas) {
         
-        /*--- Compressible flow Ideal gas ---*/
-        numerics_container[MESH_0][FLOW_SOL][VISC_TERM] = new CAvgGradCorrected_Flow(nDim, nVar_Flow, config);
-        for (iMGlevel = 1; iMGlevel <= config->GetnMGLevels(); iMGlevel++)
-          numerics_container[iMGlevel][FLOW_SOL][VISC_TERM] = new CAvgGrad_Flow(nDim, nVar_Flow, config);
+	if (config->GetWall_Functions())
+	  {
+	    /*--- Compressible flow Ideal gas ---*/
+	    numerics_container[MESH_0][FLOW_SOL][VISC_TERM] = new CAvgGradCorrected_Flow2(nDim, nVar_Flow, config);
+	    for (iMGlevel = 1; iMGlevel <= config->GetnMGLevels(); iMGlevel++)
+	      numerics_container[iMGlevel][FLOW_SOL][VISC_TERM] = new CAvgGrad_Flow2(nDim, nVar_Flow, config);
         
-        /*--- Definition of the boundary condition method ---*/
-        for (iMGlevel = 0; iMGlevel <= config->GetnMGLevels(); iMGlevel++)
-          numerics_container[iMGlevel][FLOW_SOL][VISC_BOUND_TERM] = new CAvgGrad_Flow(nDim, nVar_Flow, config);
+	    /*--- Definition of the boundary condition method ---*/
+	    for (iMGlevel = 0; iMGlevel <= config->GetnMGLevels(); iMGlevel++)
+	      numerics_container[iMGlevel][FLOW_SOL][VISC_BOUND_TERM] = new CAvgGrad_Flow2(nDim, nVar_Flow, config);
+	  }
+	else
+	  {
+	    /*--- Compressible flow Ideal gas ---*/
+	    numerics_container[MESH_0][FLOW_SOL][VISC_TERM] = new CAvgGradCorrected_Flow(nDim, nVar_Flow, config);
+	    for (iMGlevel = 1; iMGlevel <= config->GetnMGLevels(); iMGlevel++)
+	      numerics_container[iMGlevel][FLOW_SOL][VISC_TERM] = new CAvgGrad_Flow(nDim, nVar_Flow, config);
+        
+	    /*--- Definition of the boundary condition method ---*/
+	    for (iMGlevel = 0; iMGlevel <= config->GetnMGLevels(); iMGlevel++)
+	      numerics_container[iMGlevel][FLOW_SOL][VISC_BOUND_TERM] = new CAvgGrad_Flow(nDim, nVar_Flow, config);
+
+	  }
         
       } else{
         

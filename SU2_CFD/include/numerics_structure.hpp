@@ -860,6 +860,25 @@ public:
 						  double val_turb_ke, double *val_normal,
 						  double val_laminar_viscosity,
 						  double val_eddy_viscosity);
+
+	/*!
+	 * \brief Compute the projection of the viscous fluxes into a direction.
+	 * \param[in] val_primvar - Primitive variables.
+	 * \param[in] val_gradprimvar - Gradient of the primitive variables.
+	 * \param[in] val_tau - Stress tensor
+	 * \param[in] val_turb_ke - Turbulent kinetic energy
+	 * \param[in] val_normal - Normal vector, the norm of the vector is the area of the face.
+	 * \param[in] val_laminar_viscosity - Laminar viscosity.
+	 * \param[in] val_eddy_viscosity - Eddy viscosity.
+	 * \param[in] val_thermal_conductivity - Thermal Conductivity.
+	 * \param[in] val_eddy_conductivity - Eddy Conductivity.
+	 */
+
+         void GetViscousProjFlux(double *val_primvar, double **val_gradprimvar, double ** val_tau,
+						  double val_turb_ke, double *val_normal,
+						  double val_laminar_viscosity,
+						  double val_eddy_viscosity);
+
 	/*!
 	 * \brief Compute the projection of the viscous fluxes into a direction for general fluid model.
 	 * \param[in] val_primvar - Primitive variables.
@@ -3119,6 +3138,47 @@ public:
 	void ComputeResidual(double *val_residual, double **val_Jacobian_i, double **val_Jacobian_j, CConfig *config);
 };
 
+class CAvgGrad_Flow2 : public CNumerics {
+private:
+	unsigned short iDim, iVar, jVar;	   /*!< \brief Iterators in dimension an variable. */
+	double *Mean_PrimVar,				   /*!< \brief Mean primitive variables. */
+	*PrimVar_i, *PrimVar_j,				   /*!< \brief Primitives variables at point i and 1. */
+	Total_Viscosity_i,Total_Viscosity_j,
+	  **Mean_GradPrimVar,**Mean_Tau,visc_div_vel,					   /*!< \brief Mean value of the gradient. */
+	Mean_Laminar_Viscosity,                /*!< \brief Mean value of the viscosity. */
+	Mean_Eddy_Viscosity,                   /*!< \brief Mean value of the eddy viscosity. */
+	Mean_Thermal_Conductivity,             /*!< \brief Mean value of the thermal conductivity. */
+	Mean_Cp,                               /*!< \brief Mean value of the Cp. */
+	Mean_turb_ke,				/*!< \brief Mean value of the turbulent kinetic energy. */
+	*ProjFlux,	/*!< \brief Projection of the viscous fluxes. */
+	dist_ij;						/*!< \brief Length of the edge and face. */
+	bool implicit; /*!< \brief Implicit calculus. */
+
+public:
+    
+	/*!
+	 * \brief Constructor of the class.
+	 * \param[in] val_nDim - Number of dimension of the problem.
+	 * \param[in] val_nVar - Number of variables of the problem.
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	CAvgGrad_Flow2(unsigned short val_nDim, unsigned short val_nVar, CConfig *config);
+    
+	/*!
+	 * \brief Destructor of the class.
+	 */
+	~CAvgGrad_Flow2(void);
+    
+	/*!
+	 * \brief Compute the viscous flow residual using an average of gradients.
+	 * \param[out] val_residual - Pointer to the total residual.
+	 * \param[out] val_Jacobian_i - Jacobian of the numerical method at node i (implicit computation).
+	 * \param[out] val_Jacobian_j - Jacobian of the numerical method at node j (implicit computation).
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	void ComputeResidual(double *val_residual, double **val_Jacobian_i, double **val_Jacobian_j, CConfig *config);
+};
+
 /*!
  * \class CGeneralAvgGrad_Flow
  * \brief Class for computing viscous term using the average of gradients.
@@ -3516,6 +3576,56 @@ public:
 	 * \brief Destructor of the class.
 	 */
 	~CAvgGradCorrected_Flow(void);
+    
+	/*!
+	 * \brief Compute the viscous flow residual using an average of gradients with correction.
+	 * \param[out] val_residual - Pointer to the total residual.
+	 * \param[out] val_Jacobian_i - Jacobian of the numerical method at node i (implicit computation).
+	 * \param[out] val_Jacobian_j - Jacobian of the numerical method at node j (implicit computation).
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	void ComputeResidual(double *val_residual, double **val_Jacobian_i, double **val_Jacobian_j, CConfig *config);
+};
+
+/*!
+ * \class CAvgGradCorrected_Flow
+ * \brief Class for computing viscous term using the average of gradients with a correction.
+ * \ingroup ViscDiscr
+ * \author A. Bueno, and F. Palacios
+ * \version 3.2.9 "eagle"
+ */
+class CAvgGradCorrected_Flow2 : public CNumerics {
+private:
+	unsigned short iDim, iVar, jVar;		/*!< \brief Iterators in dimension an variable. */
+	double *Mean_PrimVar,					/*!< \brief Mean primitive variables. */
+	*PrimVar_i, *PrimVar_j,				/*!< \brief Primitives variables at point i and 1. */
+	Total_Viscosity_i, Total_Viscosity_j,   
+	*Edge_Vector,									/*!< \brief Vector form point i to point j. */
+	  **Mean_GradPrimVar, *Proj_Mean_GradPrimVar_Edge,**Mean_Tau,visc_div_vel,	/*!< \brief Mean value of the gradient. */
+	Mean_Laminar_Viscosity,      /*!< \brief Mean value of the laminar viscosity. */
+	Mean_Eddy_Viscosity,         /*!< \brief Mean value of the eddy viscosity. */
+	Mean_Thermal_Conductivity,   /*!< \brief Mean value of the thermal conductivity. */
+	Mean_Cp,                     /*!< \brief Mean value of the specific heat. */
+	Mean_turb_ke,				 /*!< \brief Mean value of the turbulent kinetic energy. */
+	dist_ij_2,					 /*!< \brief Length of the edge and face. */
+	*ProjFlux;	/*!< \brief Projection of the viscous fluxes. */
+	bool implicit;			/*!< \brief Implicit calculus. */
+  bool limiter;			/*!< \brief Viscous limiter. */
+
+public:
+    
+	/*!
+	 * \brief Constructor of the class.
+	 * \param[in] val_nDim - Number of dimension of the problem.
+	 * \param[in] val_nVar - Number of variables of the problem.
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	CAvgGradCorrected_Flow2(unsigned short val_nDim, unsigned short val_nVar, CConfig *config);
+    
+	/*!
+	 * \brief Destructor of the class.
+	 */
+	~CAvgGradCorrected_Flow2(void);
     
 	/*!
 	 * \brief Compute the viscous flow residual using an average of gradients with correction.

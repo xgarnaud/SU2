@@ -9,3 +9,4 @@ export PYTHONPATH=$PYTHONPATH:/home/xgarnaud/local/ParaView-v4.3.1/lib/paraview-
 
 # CGNS
 export PYTHONPATH=$PYTHONPATH:/home/software/elsa/W/I/Dist/bin/eos-gcc/lib/python2.7/site-packages
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/software/elsa/hdf5/lib

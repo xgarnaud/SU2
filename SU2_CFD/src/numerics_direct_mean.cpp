@@ -3116,42 +3116,140 @@ void CAvgGrad_Flow::ComputeResidual(double *val_residual, double **val_Jacobian_
   Mean_turb_ke = 0.5*(turb_ke_i + turb_ke_j);
   
   /*--- Mean gradient approximation ---*/
-  double norm_avg_grad_vel = 0.;
   for (iVar = 0; iVar < nDim+1; iVar++) {
     for (iDim = 0; iDim < nDim; iDim++) {
-      Mean_GradPrimVar[iVar][iDim] = //.5*((Laminar_Viscosity_i+Eddy_Viscosity_i)*PrimVar_Grad_i[iVar][iDim] +
-	//(Laminar_Viscosity_j+Eddy_Viscosity_j)*PrimVar_Grad_j[iVar][iDim]
-	//				 ) / (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity);
-	.5*(PrimVar_Grad_i[iVar][iDim] + PrimVar_Grad_j[iVar][iDim]);
-      if (iVar > 0)
-	norm_avg_grad_vel += Mean_GradPrimVar[iVar][iDim]*Mean_GradPrimVar[iVar][iDim];
+      Mean_GradPrimVar[iVar][iDim] = .5*(PrimVar_Grad_i[iVar][iDim] + PrimVar_Grad_j[iVar][iDim]);
     }
   }
-  norm_avg_grad_vel = sqrt(norm_avg_grad_vel);
-
-  /*--- Modification of eddy viscosity to average the viscous flux ---*/
-  if (config->GetWall_Functions() && (Mean_Eddy_Viscosity > .1*Mean_Laminar_Viscosity))
-    {
-      double tmp;
-      double norm_avg_grad_vel_mod = 0.;
-      for (iVar = 0; iVar < nDim+1; iVar++) {
-  	for (iDim = 0; iDim < nDim; iDim++) {
-  	  tmp = 0.5*((Laminar_Viscosity_i+Eddy_Viscosity_i)*PrimVar_Grad_i[iVar][iDim] +
-  		     (Laminar_Viscosity_j+Eddy_Viscosity_j)*PrimVar_Grad_j[iVar][iDim]
-  		     ) / (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity);
-  	  if (iVar > 0)
-  	    norm_avg_grad_vel_mod += tmp*tmp;
-  	}
-      }
-      norm_avg_grad_vel_mod = sqrt(norm_avg_grad_vel_mod);
-
-      const double Mean_Total_Viscosity = (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity) * (norm_avg_grad_vel_mod / (norm_avg_grad_vel+1e-10));
-      Mean_Eddy_Viscosity = max(Mean_Total_Viscosity - Mean_Laminar_Viscosity,0.);
-    }
 
   /*--- Get projected flux tensor ---*/
   
   GetViscousProjFlux(Mean_PrimVar, Mean_GradPrimVar, Mean_turb_ke, Normal, Mean_Laminar_Viscosity, Mean_Eddy_Viscosity);
+
+  /*--- Update viscous residual ---*/
+  
+  for (iVar = 0; iVar < nVar; iVar++)
+    val_residual[iVar] = Proj_Flux_Tensor[iVar];
+  
+  /*--- Compute the implicit part ---*/
+  
+  if (implicit) {
+    
+    dist_ij = 0.0;
+    for (iDim = 0; iDim < nDim; iDim++)
+      dist_ij += (Coord_j[iDim]-Coord_i[iDim])*(Coord_j[iDim]-Coord_i[iDim]);
+    dist_ij = sqrt(dist_ij);
+    
+    if (dist_ij == 0.0) {
+      for (iVar = 0; iVar < nVar; iVar++) {
+	for (jVar = 0; jVar < nVar; jVar++) {
+	  val_Jacobian_i[iVar][jVar] = 0.0;
+	  val_Jacobian_j[iVar][jVar] = 0.0;
+	}
+      }
+    }
+    else {
+      GetViscousProjJacs(Mean_PrimVar, Mean_Laminar_Viscosity, Mean_Eddy_Viscosity,
+			 dist_ij, UnitNormal, Area, Proj_Flux_Tensor, val_Jacobian_i, val_Jacobian_j);
+    }
+    
+  }
+  
+}
+
+CAvgGrad_Flow2::CAvgGrad_Flow2(unsigned short val_nDim, unsigned short val_nVar, CConfig *config) : CNumerics(val_nDim, val_nVar, config) {
+
+  implicit = (config->GetKind_TimeIntScheme_Flow() == EULER_IMPLICIT);
+
+  PrimVar_i = new double [nDim+3];
+  PrimVar_j = new double [nDim+3];
+  Mean_PrimVar = new double [nDim+3];
+  
+  Mean_GradPrimVar = new double* [nDim+1];
+  for (iVar = 0; iVar < nDim+1; iVar++)
+    Mean_GradPrimVar[iVar] = new double [nDim];
+
+  Mean_Tau = new double* [nDim];
+  for (iVar = 0; iVar < nDim; iVar++)
+    Mean_Tau[iVar] = new double [nDim];
+  
+}
+
+CAvgGrad_Flow2::~CAvgGrad_Flow2(void) {
+
+  delete [] PrimVar_i;
+  delete [] PrimVar_j;
+  delete [] Mean_PrimVar;
+  for (iVar = 0; iVar < nDim+1; iVar++)
+    delete [] Mean_GradPrimVar[iVar];
+  delete [] Mean_GradPrimVar;
+  for (iVar = 0; iVar < nDim; iVar++)
+    delete [] Mean_Tau[iVar];
+  delete [] Mean_Tau;
+  
+}
+
+void CAvgGrad_Flow2::ComputeResidual(double *val_residual, double **val_Jacobian_i, double **val_Jacobian_j, CConfig *config) {
+
+  /*--- Normalized normal vector ---*/
+  
+  Area = 0.0;
+  for (iDim = 0; iDim < nDim; iDim++)
+    Area += Normal[iDim]*Normal[iDim];
+  Area = sqrt(Area);
+  
+  for (iDim = 0; iDim < nDim; iDim++)
+    UnitNormal[iDim] = Normal[iDim]/Area;
+  
+  for (iVar = 0; iVar < nDim+3; iVar++) {
+    PrimVar_i[iVar] = V_i[iVar];
+    PrimVar_j[iVar] = V_j[iVar];
+    Mean_PrimVar[iVar] = 0.5*(PrimVar_i[iVar]+PrimVar_j[iVar]);
+  }
+
+	  
+  /*--- Laminar and Eddy viscosity ---*/
+  
+  Laminar_Viscosity_i = V_i[nDim+5]; Laminar_Viscosity_j = V_j[nDim+5];
+  Eddy_Viscosity_i = V_i[nDim+6]; Eddy_Viscosity_j = V_j[nDim+6];
+
+  /*--- Mean Viscosities and turbulent kinetic energy---*/
+  
+  Mean_Laminar_Viscosity = 0.5*(Laminar_Viscosity_i + Laminar_Viscosity_j);
+  Mean_Eddy_Viscosity = 0.5*(Eddy_Viscosity_i + Eddy_Viscosity_j);
+  Mean_turb_ke = 0.5*(turb_ke_i + turb_ke_j);
+  
+  /*--- Mean gradient approximation ---*/
+  iVar = 0;
+  for (iDim = 0; iDim < nDim; iDim++) {
+    Mean_GradPrimVar[iVar][iDim] = .5*(PrimVar_Grad_i[iVar][iDim] + PrimVar_Grad_j[iVar][iDim]);
+  }
+  
+  /*--- Shear stress ---*/
+  Total_Viscosity_i = Laminar_Viscosity_i+Eddy_Viscosity_i;
+  Total_Viscosity_j = Laminar_Viscosity_j+Eddy_Viscosity_j;
+
+  visc_div_vel = 0.0;
+  for (iDim = 0 ; iDim < nDim; iDim++)
+    visc_div_vel += .5*(Total_Viscosity_i*PrimVar_Grad_i[iDim+1][iDim] + 
+			Total_Viscosity_j*PrimVar_Grad_j[iDim+1][iDim]);
+  
+  for (iVar = 0; iVar < nDim; iVar++) {
+    for (iDim = 0; iDim < nDim; iDim++) {
+      Mean_Tau[iVar][iDim] = 0.5*(Total_Viscosity_i*PrimVar_Grad_i[iVar+1][iDim] + 
+				  Total_Viscosity_j*PrimVar_Grad_j[iVar+1][iDim] +
+				  Total_Viscosity_i*PrimVar_Grad_i[iDim+1][iVar] + 
+				  Total_Viscosity_j*PrimVar_Grad_j[iDim+1][iVar]
+				  );
+    }
+  }
+
+  for (iDim = 0 ; iDim < nDim; iDim++)
+    Mean_Tau[iDim][iDim] -= TWO3*(visc_div_vel + .5*Mean_turb_ke);
+
+  /*--- Get projected flux tensor ---*/
+  
+  GetViscousProjFlux(Mean_PrimVar, Mean_GradPrimVar, Mean_Tau, Mean_turb_ke, Normal, Mean_Laminar_Viscosity, Mean_Eddy_Viscosity);
 
   /*--- Update viscous residual ---*/
   
@@ -3445,8 +3543,6 @@ void CAvgGradCorrected_Flow::ComputeResidual(double *val_residual, double **val_
   Mean_turb_ke = 0.5*(turb_ke_i + turb_ke_j);
   
   /*--- Projection of the mean gradient in the direction of the edge ---*/
-  double norm_avg_grad_vel = 0.,norm_avg_grad_vel_mod = 0.;
-
   for (iVar = 0; iVar < nDim+1; iVar++) {
     Proj_Mean_GradPrimVar_Edge[iVar] = 0.0;
     
@@ -3471,37 +3567,177 @@ void CAvgGradCorrected_Flow::ComputeResidual(double *val_residual, double **val_
                                          (PrimVar_j[iVar]-PrimVar_i[iVar]))*Edge_Vector[iDim] / dist_ij_2;
       }
     }
-
-    if (iVar > 0)
-      for (iDim = 0; iDim < nDim; iDim++)
-	norm_avg_grad_vel += Mean_GradPrimVar[iVar][iDim]*Mean_GradPrimVar[iVar][iDim];
-
   }
 
-  norm_avg_grad_vel = sqrt(norm_avg_grad_vel);
-  
-  /*--- Modification of eddy viscosity to average the viscous flux ---*/
-  if (config->GetWall_Functions() && (Mean_Eddy_Viscosity > .1*Mean_Laminar_Viscosity))
-    {
-      double tmp;
-      for (iVar = 0; iVar < nDim+1; iVar++) {
-      	for (iDim = 0; iDim < nDim; iDim++) {
-      	  tmp = 0.5*((Laminar_Viscosity_i+Eddy_Viscosity_i)*PrimVar_Grad_i[iVar][iDim] +
-      		     (Laminar_Viscosity_j+Eddy_Viscosity_j)*PrimVar_Grad_j[iVar][iDim]
-      		     ) / (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity);
-
-      	  if (iVar > 0)
-      	    norm_avg_grad_vel_mod += tmp*tmp;
-      	}
-      }
-      norm_avg_grad_vel_mod = sqrt(norm_avg_grad_vel_mod);
-
-      const double Mean_Total_Viscosity = (Mean_Laminar_Viscosity+Mean_Eddy_Viscosity) * (norm_avg_grad_vel_mod / (norm_avg_grad_vel+1e-10));
-      Mean_Eddy_Viscosity = max(Mean_Total_Viscosity - Mean_Laminar_Viscosity,0.);
-    }
   /*--- Get projected flux tensor ---*/
   
   GetViscousProjFlux(Mean_PrimVar, Mean_GradPrimVar, Mean_turb_ke, Normal, Mean_Laminar_Viscosity, Mean_Eddy_Viscosity);
+  
+  /*--- Save residual value ---*/
+  
+  for (iVar = 0; iVar < nVar; iVar++)
+    val_residual[iVar] = Proj_Flux_Tensor[iVar];
+  
+  /*--- Compute the implicit part ---*/
+  
+  if (implicit) {
+    
+    if (dist_ij_2 == 0.0) {
+      for (iVar = 0; iVar < nVar; iVar++) {
+	for (jVar = 0; jVar < nVar; jVar++) {
+	  val_Jacobian_i[iVar][jVar] = 0.0;
+	  val_Jacobian_j[iVar][jVar] = 0.0;
+	}
+      }
+    }
+    else {
+      GetViscousProjJacs(Mean_PrimVar, Mean_Laminar_Viscosity, Mean_Eddy_Viscosity,
+			 sqrt(dist_ij_2), UnitNormal, Area, Proj_Flux_Tensor, val_Jacobian_i, val_Jacobian_j);
+    }
+    
+  }
+  
+}
+
+CAvgGradCorrected_Flow2::CAvgGradCorrected_Flow2(unsigned short val_nDim, unsigned short val_nVar, CConfig *config) : CNumerics(val_nDim, val_nVar, config) {
+
+	implicit = (config->GetKind_TimeIntScheme_Flow() == EULER_IMPLICIT);
+  limiter = config->GetViscous_Limiter_Flow();
+
+	PrimVar_i = new double [nDim+3];
+	PrimVar_j = new double [nDim+3];
+	Mean_PrimVar = new double [nDim+3];
+  
+	Proj_Mean_GradPrimVar_Edge = new double [nDim+1];
+	Mean_GradPrimVar = new double* [nDim+1];
+	for (iVar = 0; iVar < nDim+1; iVar++)
+		Mean_GradPrimVar[iVar] = new double [nDim];
+
+	Mean_Tau = new double* [nDim];
+	for (iVar = 0; iVar < nDim; iVar++)
+		Mean_Tau[iVar] = new double [nDim];
+
+	Edge_Vector = new double [nDim];
+  
+}
+CAvgGradCorrected_Flow2::~CAvgGradCorrected_Flow2(void) {
+
+	delete [] PrimVar_i;
+	delete [] PrimVar_j;
+	delete [] Mean_PrimVar;
+	delete [] Proj_Mean_GradPrimVar_Edge;
+	delete [] Edge_Vector;
+	for (iVar = 0; iVar < nDim+1; iVar++)
+		delete [] Mean_GradPrimVar[iVar];
+	delete [] Mean_GradPrimVar;
+	for (iVar = 0; iVar < nDim+1; iVar++)
+		delete [] Mean_Tau[iVar];
+	delete [] Mean_Tau;
+  
+}
+void CAvgGradCorrected_Flow2::ComputeResidual(double *val_residual, double **val_Jacobian_i, double **val_Jacobian_j, CConfig *config) {
+
+  /*--- Normalized normal vector ---*/
+  
+  Area = 0.0;
+  for (iDim = 0; iDim < nDim; iDim++)
+    Area += Normal[iDim]*Normal[iDim];
+  Area = sqrt(Area);
+  
+  for (iDim = 0; iDim < nDim; iDim++)
+    UnitNormal[iDim] = Normal[iDim]/Area;
+  
+  for (iVar = 0; iVar < nDim+3; iVar++) {
+    PrimVar_i[iVar] = V_i[iVar];
+    PrimVar_j[iVar] = V_j[iVar];
+    Mean_PrimVar[iVar] = 0.5*(PrimVar_i[iVar]+PrimVar_j[iVar]);
+  }
+  
+  /*--- Compute vector going from iPoint to jPoint ---*/
+  
+  dist_ij_2 = 0.0;
+  for (iDim = 0; iDim < nDim; iDim++) {
+    Edge_Vector[iDim] = Coord_j[iDim]-Coord_i[iDim];
+    dist_ij_2 += Edge_Vector[iDim]*Edge_Vector[iDim];
+  }
+  
+  /*--- Laminar and Eddy viscosity ---*/
+  
+  Laminar_Viscosity_i = V_i[nDim+5]; Laminar_Viscosity_j = V_j[nDim+5];
+  Eddy_Viscosity_i = V_i[nDim+6]; Eddy_Viscosity_j = V_j[nDim+6];
+  
+  /*--- Mean Viscosities and turbulent kinetic energy ---*/
+  
+  Mean_Laminar_Viscosity = 0.5*(Laminar_Viscosity_i + Laminar_Viscosity_j);
+  Mean_Eddy_Viscosity = 0.5*(Eddy_Viscosity_i + Eddy_Viscosity_j);
+  Mean_turb_ke = 0.5*(turb_ke_i + turb_ke_j);
+  
+  /*--- Projection of the mean gradient in the direction of the edge ---*/
+  iVar = 0;
+  Proj_Mean_GradPrimVar_Edge[iVar] = 0.0;
+    
+  if (!limiter) {
+    for (iDim = 0; iDim < nDim; iDim++) {
+      Mean_GradPrimVar[iVar][iDim] = 0.5*(PrimVar_Grad_i[iVar][iDim] + PrimVar_Grad_j[iVar][iDim]);
+      Proj_Mean_GradPrimVar_Edge[iVar] += Mean_GradPrimVar[iVar][iDim]*Edge_Vector[iDim];
+    }
+  }
+  else {
+    for (iDim = 0; iDim < nDim; iDim++) {
+      Mean_GradPrimVar[iVar][iDim] = 0.5*(PrimVar_Grad_i[iVar][iDim]*PrimVar_Lim_i[iVar] +
+					  PrimVar_Grad_j[iVar][iDim]*PrimVar_Lim_j[iVar]);
+      Proj_Mean_GradPrimVar_Edge[iVar] += Mean_GradPrimVar[iVar][iDim]*Edge_Vector[iDim];
+    }
+  }
+    
+  if (dist_ij_2 != 0.0) {
+    for (iDim = 0; iDim < nDim; iDim++) {
+      Mean_GradPrimVar[iVar][iDim] -= (Proj_Mean_GradPrimVar_Edge[iVar] -
+				       (PrimVar_j[iVar]-PrimVar_i[iVar]))*Edge_Vector[iDim] / dist_ij_2;
+    }
+  }
+
+  /*--- Shear stress ---*/
+  Total_Viscosity_i = Laminar_Viscosity_i+Eddy_Viscosity_i;
+  Total_Viscosity_j = Laminar_Viscosity_j+Eddy_Viscosity_j;
+  
+  visc_div_vel = 0.0;
+  if (!limiter)
+    for (iDim = 0 ; iDim < nDim; iDim++)
+      visc_div_vel += .5*(Total_Viscosity_i*PrimVar_Grad_i[iDim+1][iDim] + 
+			  Total_Viscosity_j*PrimVar_Grad_j[iDim+1][iDim]);
+  else
+    for (iDim = 0 ; iDim < nDim; iDim++)
+      visc_div_vel += .5*(Total_Viscosity_i*PrimVar_Grad_i[iDim+1][iDim]*PrimVar_Lim_i[iVar] + 
+			  Total_Viscosity_j*PrimVar_Grad_j[iDim+1][iDim]*PrimVar_Lim_j[iVar]);
+
+  for (iVar = 0; iVar < nDim; iVar++) {
+    if (!limiter) {
+      for (iDim = 0; iDim < nDim; iDim++) {
+	Mean_Tau[iVar][iDim] = 0.5*(Total_Viscosity_i*PrimVar_Grad_i[iVar+1][iDim] + 
+				    Total_Viscosity_j*PrimVar_Grad_j[iVar+1][iDim] +
+				    Total_Viscosity_i*PrimVar_Grad_i[iDim+1][iVar] + 
+				    Total_Viscosity_j*PrimVar_Grad_j[iDim+1][iVar]
+				    );
+      }
+    }
+    else {
+      for (iDim = 0; iDim < nDim; iDim++) {
+	Mean_Tau[iVar][iDim] = 0.5*(Total_Viscosity_i*PrimVar_Grad_i[iVar+1][iDim]*PrimVar_Lim_i[iVar] +
+				    Total_Viscosity_j*PrimVar_Grad_j[iVar+1][iDim]*PrimVar_Lim_j[iVar] +
+				    Total_Viscosity_i*PrimVar_Grad_i[iDim+1][iVar]*PrimVar_Lim_i[iDim] +
+				    Total_Viscosity_j*PrimVar_Grad_j[iDim+1][iVar]*PrimVar_Lim_j[iDim]
+				    );
+      }
+    }
+  }
+
+  for (iDim = 0 ; iDim < nDim; iDim++)
+    Mean_Tau[iDim][iDim] -= TWO3*(visc_div_vel + .5*Mean_turb_ke);
+
+  /*--- Get projected flux tensor ---*/
+  
+  GetViscousProjFlux(Mean_PrimVar, Mean_GradPrimVar, Mean_Tau, Mean_turb_ke, Normal, Mean_Laminar_Viscosity, Mean_Eddy_Viscosity);
   
   /*--- Save residual value ---*/
   
