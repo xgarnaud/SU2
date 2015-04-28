@@ -39,6 +39,11 @@
 #ifdef HAVE_TECIO
   #include "TECIO.h"
 #endif
+#ifdef HAVE_HDF5
+  #include  "hdf5.h"
+  #include  "hdf5_hl.h"
+#endif
+
 #include <fstream>
 #include <cmath>
 #include <time.h>
@@ -288,6 +293,16 @@ public:
    * \param[in] val_iZone - iZone index.
 	 */
 	void SetRestart(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned short val_iZone);
+
+ #ifdef HAVE_HDF5
+  /*!
+	 * \brief Write a native SU2 restart file.
+	 * \param[in] config - Definition of the particular problem.
+	 * \param[in] geometry - Geometrical definition of the problem.
+   * \param[in] val_iZone - iZone index.
+	 */
+	void SetRestart_HDF5(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned short val_iZone);
+#endif
 
   /*!
 	 * \brief Write the x, y, & z coordinates to a CGNS output file.

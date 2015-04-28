@@ -35,6 +35,10 @@
 #ifdef HAVE_MPI
   #include "mpi.h"
 #endif
+#ifdef HAVE_HDF5
+  #include "hdf5.h"
+  #include "hdf5_hl.h"
+#endif
 #include <cmath>
 #include <string>
 #include <fstream>
@@ -2052,7 +2056,7 @@ public:
 	 */
 	virtual void LoadRestart(CGeometry **geometry, CSolver ***solver,
                            CConfig *config, int val_iter);
-    
+
 	/*!
 	 * \brief Gauss method for solving a linear system.
 	 * \param[in] A - Matrix Ax = b.
@@ -3473,6 +3477,7 @@ public:
 	void SetFlow_Displacement(CGeometry **flow_geometry, CVolumetricMovement *flow_grid_movement, CConfig *flow_config, CConfig *fea_config,
                               CGeometry **fea_geometry, CSolver ***fea_solution);
     
+
 	/*!
 	 * \brief Load a solution from a restart file.
 	 * \param[in] geometry - Geometrical definition of the problem.
@@ -3481,7 +3486,7 @@ public:
 	 * \param[in] val_iter - Current external iteration number.
 	 */
 	void LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig *config, int val_iter);
-    
+
 	/*!
 	 * \brief Set the initial condition for the Euler Equations.
 	 * \param[in] geometry - Geometrical definition of the problem.

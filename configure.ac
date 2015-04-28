@@ -43,7 +43,7 @@ AC_PREREQ([2.59])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE([subdir-objects foreign])
-# m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES(yes)])
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES(yes)])
 
 # AC_CONFIG_HEADERS([config.h])
 SU2_SET_COMPILERS
@@ -212,7 +212,7 @@ if test "$have_HDF5" != "no"
 then
   	AM_CONDITIONAL(BUILD_HDF5,true)
 	HDF5_CXX="-DHAVE_HDF5 -I"$with_HDF5_dir/include""
-	HDF5_LD=""$with_HDF5_dir/lib"/$HDF5lib "$with_HDF5_dir/lib"/$HDF5lib_hl -ldl -lz -lpthread -lm"
+	HDF5_LD=""$with_HDF5_dir/lib"/$HDF5lib_hl "$with_HDF5_dir/lib"/$HDF5lib -ldl -lz -lpthread -lm"
 else
 	AM_CONDITIONAL(BUILD_HDF5,false)
 	HDF5_CXX=

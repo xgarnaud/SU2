@@ -1155,7 +1155,110 @@ CTurbSASolver::CTurbSASolver(CGeometry *geometry, CConfig *config, unsigned shor
       cout << "There is no turbulent restart file!!" << endl;
       exit(EXIT_FAILURE);
     }
+#ifdef HAVE_HDF5
+
+    /*--- open the restart file ---*/
+    hid_t file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
     
+    hid_t ele_id = H5Gopen (file_id, "PointData",H5P_DEFAULT );
+    
+    hid_t dset_id,space_id,mid1;
+    herr_t ret;
+    
+    
+    /*--- get the global indices of the local points ---*/
+    
+    int npoints = geometry->GetnPointDomain();
+    hsize_t *local_idx;
+    local_idx = new hsize_t[npoints];
+    for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++)
+      local_idx[iPoint] = geometry->node[iPoint]->GetGlobalIndex();
+    
+    hsize_t dims[] = { geometry->GetnPointDomain()};
+
+    /*--- load the NS variables ---*/
+    int nCons = 0;
+    if (compressible)
+      nCons = 2+nDim;
+    if (incompressible)
+      nCons = 1+nDim;
+    if (freesurface)
+      nCons = 2+nDim;
+    
+    double ** cons;
+    cons = new double* [nCons];
+    for (iVar = 0; iVar < nCons; iVar++)
+      cons[iVar] = new double [npoints];
+
+    ostringstream sstm;  
+    for (iVar = 0; iVar < nCons; iVar++){
+      sstm.clear(); sstm.str("");
+      sstm << "Conservative_" << iVar+1 ;
+      
+      dset_id = H5Dopen (ele_id, sstm.str().c_str(),H5P_DEFAULT);
+      space_id = H5Dget_space (dset_id);
+      mid1 = H5Screate_simple(1, dims, NULL);
+      ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+      ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, cons[iVar]); 
+    }
+
+    /*--- load the Spalart variables ---*/
+    double *nuhat;
+    nuhat = new double[npoints];
+
+    sstm.clear(); sstm.str("");
+    sstm << "Conservative_" << nCons+1 ;
+    
+    dset_id = H5Dopen (ele_id, sstm.str().c_str(),H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, nuhat);
+
+    double U2;
+    for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++){
+
+      Solution[0] = nuhat[iPoint];
+
+      if (compressible){
+	Density = cons[0][iPoint];
+	U2 = (cons[1][iPoint]*cons[1][iPoint]+cons[2][iPoint]*cons[2][iPoint]);
+	if (nDim == 3)
+	  U2 += cons[3][iPoint]*cons[3][iPoint];
+	U2 /= Density*Density;
+	
+	StaticEnergy = cons[nCons-1][iPoint]/Density - U2;
+	FluidModel->SetTDState_rhoe(Density, StaticEnergy);
+	Laminar_Viscosity = FluidModel->GetLaminarViscosity();
+	nu     = Laminar_Viscosity/Density;
+	nu_hat = Solution[0];
+	Ji     = nu_hat/nu;
+	Ji_3   = Ji*Ji*Ji;
+	fv1    = Ji_3/(Ji_3+cv1_3);
+	muT    = Density*fv1*nu_hat;
+      } else {
+	muT = muT_Inf;
+      }
+    node[iPoint] = new CTurbSAVariable(Solution[0], muT, nDim, nVar, config);
+    }
+    
+    /*--- Instantiate the variable class with an arbitrary solution
+      at any halo/periodic nodes. The initial solution can be arbitrary,
+      because a send/recv is performed immediately in the solver. ---*/
+    for (iPoint = nPointDomain; iPoint < nPoint; iPoint++) 
+      node[iPoint] = new CTurbSAVariable(Solution[0], muT_Inf, nDim, nVar, config);
+    
+    
+    for (iVar = 0; iVar < nCons; iVar++)
+      delete [] cons[iVar];
+    delete [] cons;
+    delete [] nuhat;
+    delete [] local_idx;
+    
+    H5Gclose(ele_id);
+    H5Fclose(file_id);
+
+#else
     /*--- In case this is a parallel simulation, we need to perform the
      Global2Local index transformation first. ---*/
     long *Global2Local;
@@ -1249,6 +1352,7 @@ CTurbSASolver::CTurbSASolver(CGeometry *geometry, CConfig *config, unsigned shor
     
     /*--- Free memory needed for the transformation ---*/
     delete [] Global2Local;
+#endif
   }
   
   /*--- MPI solution ---*/
@@ -2494,6 +2598,63 @@ void CTurbSASolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig
     exit(EXIT_FAILURE);
   }
   
+  #ifdef HAVE_HDF5
+
+    /*--- open the restart file ---*/
+    hid_t file_id = H5Fopen(restart_filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+    
+    hid_t ele_id = H5Gopen (file_id, "PointData",H5P_DEFAULT );
+    
+    hid_t dset_id,space_id,mid1;
+    herr_t ret;
+    
+    
+    /*--- get the global indices of the local points ---*/
+    
+    int npoints = geometry[MESH_0]->GetnPointDomain();
+    hsize_t *local_idx;
+    local_idx = new hsize_t[npoints];
+    for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++)
+      local_idx[iPoint] = geometry[MESH_0]->node[iPoint]->GetGlobalIndex();
+    
+    hsize_t dims[] = { geometry[MESH_0]->GetnPointDomain()};
+
+    /*--- load the Spalart variables ---*/
+    int nCons = 0;
+    if (compressible)
+      nCons = 2+nDim;
+    if (incompressible)
+      nCons = 1+nDim;
+    if (freesurface)
+      nCons = 2+nDim;
+
+    ostringstream sstm;  
+
+    double *nuhat;
+    nuhat = new double[npoints];
+
+    sstm.clear(); sstm.str("");
+    sstm << "Conservative_" << nCons+1 ;
+    
+    dset_id = H5Dopen (ele_id, sstm.str().c_str(),H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, nuhat);
+
+    double U2;
+    for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++){
+      Solution[0] = nuhat[iPoint];
+      node[iPoint]->SetSolution(Solution);
+    }
+
+    delete [] nuhat;
+    delete [] local_idx;
+    
+    H5Gclose(ele_id);
+    H5Fclose(file_id);
+
+#else
   /*--- In case this is a parallel simulation, we need to perform the
    Global2Local index transformation first. ---*/
   long *Global2Local = NULL;
@@ -2549,7 +2710,8 @@ void CTurbSASolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig
   
   /*--- Free memory needed for the transformation ---*/
   delete [] Global2Local;
-  
+#endif
+
   /*--- MPI solution and compute the eddy viscosity ---*/
   solver[MESH_0][TURB_SOL]->Set_MPI_Solution(geometry[MESH_0], config);
   solver[MESH_0][TURB_SOL]->Postprocessing(geometry[MESH_0], solver[MESH_0], config, MESH_0);

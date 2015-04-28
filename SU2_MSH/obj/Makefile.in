@@ -303,7 +303,7 @@ ___bin_SU2_MSH_SOURCES = ../include/SU2_MSH.hpp \
 # endif
 
 # if BUILD_JSONCPP
-___bin_SU2_MSH_CXXFLAGS = @su2_externals_INCLUDES@ @CGNS_CXX@ \
+___bin_SU2_MSH_CXXFLAGS = @su2_externals_INCLUDES@ @CGNS_CXX@ @HDF5_CXX@ \
 	@MUTATIONPP_CXX@ @JSONCPP_CXX@ $(am__empty)
 ___bin_SU2_MSH_LDADD = ../../Common/lib/libSU2.a @su2_externals_LIBS@ \
 	@CGNS_LD@ @HDF5_LD@ @MUTATIONPP_LD@ @JSONCPP_LD@ $(am__empty)

@@ -10070,7 +10070,155 @@ void CEulerSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig 
   long iPoint_Local = 0; unsigned long iPoint_Global = 0;
 
   /*--- The first line is the header ---*/
+#ifdef HAVE_HDF5
+
+  /*--- open the restart file ---*/
+  hid_t file_id = H5Fopen(restart_filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+
+  hid_t ele_id = H5Gopen (file_id, "PointData",H5P_DEFAULT );
+
+  hid_t dset_id,space_id,mid1;
+  herr_t ret;
+
   
+  /*--- get the global indices of the local points ---*/
+
+  int npoints = geometry[MESH_0]->GetnPointDomain();
+  hsize_t *local_idx;
+  local_idx = new hsize_t[npoints];
+  for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++)
+    local_idx[iPoint] = geometry[MESH_0]->node[iPoint]->GetGlobalIndex();
+
+  hsize_t dims[] = { geometry[MESH_0]->GetnPointDomain()};
+
+
+  if (grid_movement) {
+    double *x,*y,*z,*v0,*v1,*v2;
+    double GridVel[3] = {0.0,0.0,0.0};
+
+    x = new double[npoints];
+    y = new double[npoints];
+    if (nDim == 3)
+      z = new double[npoints];
+
+    v0 = new double[npoints];
+    v1 = new double[npoints];
+    if (nDim == 3)
+      v2 = new double[npoints];
+
+    dset_id = H5Dopen (ele_id, "x",H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, x); 
+
+    dset_id = H5Dopen (ele_id, "y",H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, y); 
+
+    if (nDim == 3){
+      dset_id = H5Dopen (ele_id, "z",H5P_DEFAULT);
+      space_id = H5Dget_space (dset_id);
+      mid1 = H5Screate_simple(1, dims, NULL);
+      ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+      ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, z); 
+    }
+
+    
+    dset_id = H5Dopen (ele_id, "Grid_Velx",H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, x); 
+
+    dset_id = H5Dopen (ele_id, "Grid_Vely",H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, y); 
+
+    if (nDim == 3){
+      dset_id = H5Dopen (ele_id, "Grid_Velz",H5P_DEFAULT);
+      space_id = H5Dget_space (dset_id);
+      mid1 = H5Screate_simple(1, dims, NULL);
+      ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+      ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, z); 
+    }
+
+    for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++){
+      Coord[0] = x[iPoint];
+      Coord[1] = y[iPoint];
+      if (nDim == 3)
+	Coord[2] = z[iPoint];
+      else
+	Coord[2] = 0.0;
+
+      GridVel[0] = v0[iPoint];
+      GridVel[1] = v1[iPoint];
+      if (nDim == 3)
+	GridVel[2] = v2[iPoint];
+      else
+	GridVel[2] = 0.0;
+
+      for (iDim = 0; iDim < nDim; iDim++) {
+	geometry[MESH_0]->node[iPoint]->SetCoord(iDim, Coord[iDim]);
+	geometry[MESH_0]->node[iPoint]->SetGridVel(iDim, GridVel[iDim]);
+      }
+    }
+    delete[] x;
+    delete[] y;
+    if (nDim == 3)
+      delete[] z;
+    
+    delete[] v0;
+    delete[] v1;
+    if (nDim == 3)
+      delete[] v2;
+    
+  }
+  
+  int nCons = 0;
+  if (compressible)
+    nCons = 2+nDim;
+  if (incompressible)
+    nCons = 1+nDim;
+  if (freesurface)
+    nCons = 2+nDim;
+
+  double ** cons;
+  cons = new double* [nCons];
+  for (iVar = 0; iVar < nCons; iVar++)
+    cons[iVar] = new double [npoints];
+
+  ostringstream sstm;  
+  for (iVar = 0; iVar < nCons; iVar++){
+    sstm.clear(); sstm.str("");
+    sstm << "Conservative_" << iVar+1 ;
+
+    dset_id = H5Dopen (ele_id, sstm.str().c_str(),H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, cons[iVar]); 
+  }
+
+  for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++){
+    for (iVar = 0; iVar < nCons; iVar++)
+      Solution[iVar] = cons[iVar][iPoint];
+    
+    node[iPoint]->SetSolution(Solution);
+  }
+
+  for (iVar = 0; iVar < nCons; iVar++)
+    delete [] cons[iVar];
+  delete [] cons;
+  delete [] local_idx;
+
+  H5Gclose(ele_id);
+  H5Fclose(file_id);
+#else  
   getline (restart_file, text_line);
 
   while (getline (restart_file, text_line)) {
@@ -10133,6 +10281,7 @@ void CEulerSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig 
   /*--- Close the restart file ---*/
   
   restart_file.close();
+#endif
 
   /*--- Free memory needed for the transformation ---*/
   
@@ -10192,6 +10341,7 @@ void CEulerSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig 
   delete [] Coord;
   
 }
+
 
 void CEulerSolver::SetFreeSurface_Distance(CGeometry *geometry, CConfig *config) {
   double *coord = NULL, dist2, *iCoord = NULL, *jCoord = NULL, LevelSet_i, LevelSet_j,

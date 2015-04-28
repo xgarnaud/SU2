@@ -700,6 +700,10 @@ CPPFLAGS
 LDFLAGS
 CXXFLAGS
 CXX
+AM_BACKSLASH
+AM_DEFAULT_VERBOSITY
+AM_DEFAULT_V
+AM_V
 am__untar
 am__tar
 AMTAR
@@ -776,6 +780,7 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
+enable_silent_rules
 enable_mpi
 with_cxx
 enable_dependency_tracking
@@ -1434,6 +1439,8 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-silent-rules   less verbose build output (undo: "make V=1")
+  --disable-silent-rules  verbose build output (undo: "make V=0")
   --enable-mpi            build with MPI message passing support
   --enable-dependency-tracking
                           do not reject slow dependency extractors
@@ -3018,7 +3025,45 @@ am__tar='$${TAR-tar} chof - "$$tardir"' am__untar='$${TAR-tar} xf -'
 
 
 
-# m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES(yes)])
+# Check whether --enable-silent-rules was given.
+if test "${enable_silent_rules+set}" = set; then :
+  enableval=$enable_silent_rules;
+fi
+
+case $enable_silent_rules in # (((
+  yes) AM_DEFAULT_VERBOSITY=0;;
+   no) AM_DEFAULT_VERBOSITY=1;;
+    *) AM_DEFAULT_VERBOSITY=0;;
+esac
+am_make=${MAKE-make}
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $am_make supports nested variables" >&5
+$as_echo_n "checking whether $am_make supports nested variables... " >&6; }
+if ${am_cv_make_support_nested_variables+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if $as_echo 'TRUE=$(BAR$(V))
+BAR0=false
+BAR1=true
+V=1
+am__doit:
+	@$(TRUE)
+.PHONY: am__doit' | $am_make -f - >/dev/null 2>&1; then
+  am_cv_make_support_nested_variables=yes
+else
+  am_cv_make_support_nested_variables=no
+fi
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $am_cv_make_support_nested_variables" >&5
+$as_echo "$am_cv_make_support_nested_variables" >&6; }
+if test $am_cv_make_support_nested_variables = yes; then
+    AM_V='$(V)'
+  AM_DEFAULT_V='$(AM_DEFAULT_VERBOSITY)'
+else
+  AM_V=$AM_DEFAULT_VERBOSITY
+  AM_DEFAULT_V=$AM_DEFAULT_VERBOSITY
+fi
+AM_BACKSLASH='\'
+
 
 # AC_CONFIG_HEADERS([config.h])
 DEPDIR="${am__leading_dot}deps"
@@ -5714,7 +5759,7 @@ else
 fi
 
 	HDF5_CXX="-DHAVE_HDF5 -I"$with_HDF5_dir/include""
-	HDF5_LD=""$with_HDF5_dir/lib"/$HDF5lib "$with_HDF5_dir/lib"/$HDF5lib_hl -ldl -lz -lpthread -lm"
+	HDF5_LD=""$with_HDF5_dir/lib"/$HDF5lib_hl "$with_HDF5_dir/lib"/$HDF5lib -ldl -lz -lpthread -lm"
 else
 	 if false; then
   BUILD_HDF5_TRUE=

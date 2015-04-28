@@ -1682,7 +1682,102 @@ CBaselineSolver::CBaselineSolver(CGeometry *geometry, CConfig *config, unsigned 
   for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++)
     Global2Local[geometry->node[iPoint]->GetGlobalIndex()] = iPoint;
   
+  /*--- Set the number of variables, one per field in the
+    restart file (without including the PointID) ---*/
   
+#ifdef HAVE_HDF5
+
+  /*--- open the restart file ---*/
+  hid_t file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+
+  hid_t ele_id = H5Gopen (file_id, "PointData",H5P_DEFAULT );
+
+  hid_t dset_id,space_id,mid1;
+  herr_t ret;
+
+  /*--- get the variable names & their id ---*/
+  hsize_t nfields;
+  ret = H5Gget_num_objs (ele_id , &nfields );
+
+  vector<int> fields_id;
+  vector<string> variable_names;
+  ostringstream sstm;
+
+  nVar = nfields;
+  const size_t namel = 256;
+  char name[namel];
+
+  for (hsize_t idx = 0; idx < nfields; idx++)
+    {
+      ssize_t len = H5Gget_objname_by_idx(ele_id, idx, name, namel);
+      sstm.clear(); sstm.str("");
+      for (int i=0; i < len; i++)
+	sstm << name[i];
+
+      string varname = sstm.str();
+      int id;
+
+      dset_id = H5Dopen (ele_id, varname.c_str(),H5P_DEFAULT);
+      H5LTget_attribute_int(ele_id,varname.c_str(), "id", &id);
+
+      variable_names.push_back(varname);
+      fields_id.push_back(id);
+    }
+
+  
+  nVar = variable_names.size();
+  config->fields.resize(nVar+1);
+  config->fields[0] = "idx";
+  for (iVar = 0; iVar < nVar; iVar++)
+    config->fields[fields_id[iVar]+1] = variable_names[iVar];
+
+  double Solution[nVar];
+
+  /*--- get the global indices of the local points ---*/
+
+  int npoints = geometry->GetnPointDomain();
+  hsize_t *local_idx;
+  local_idx = new hsize_t[npoints];
+  for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++)
+    local_idx[iPoint] = geometry->node[iPoint]->GetGlobalIndex();
+
+  double **tmp;
+  tmp = new double*[nVar];
+  for (iVar = 0; iVar < nVar; iVar++)
+    tmp[iVar] = new double[npoints];
+
+  hsize_t dims[] = { geometry->GetnPointDomain()};
+
+  /*--- read the data ---*/
+  for (iVar = 0; iVar < nVar; iVar++)
+    {
+      dset_id = H5Dopen (ele_id, config->fields[iVar+1].c_str(),H5P_DEFAULT);
+      space_id = H5Dget_space (dset_id);
+      mid1 = H5Screate_simple(1, dims, NULL);
+  
+      ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+
+      ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, tmp[iVar]); 
+
+    }
+
+  /*--- set the nodes ---*/
+  for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++)
+    {
+      for (iVar = 0; iVar < nVar; iVar++)
+	Solution[iVar] = tmp[iVar][iPoint];
+      node[iPoint] = new CBaselineVariable(Solution, nVar, config);
+    }
+
+  for (iVar = 0; iVar < nVar; iVar++)
+    delete [] tmp[iVar];
+  delete [] tmp;
+  delete [] local_idx;
+
+  H5Gclose(ele_id);
+  H5Fclose(file_id);
+
+#else
   /*--- Identify the number of fields (and names) in the restart file ---*/
   
   getline (restart_file, text_line);
@@ -1691,13 +1786,10 @@ CBaselineSolver::CBaselineSolver(CGeometry *geometry, CConfig *config, unsigned 
     config->fields.push_back(Tag);
     if (ss.peek() == ',') ss.ignore();
   }
-  
-  /*--- Set the number of variables, one per field in the
-   restart file (without including the PointID) ---*/
-  
+
   nVar = config->fields.size() - 1;
   double Solution[nVar];
-  
+
   /*--- Read all lines in the restart file ---*/
   
   iPoint_Global = 0;
@@ -1722,8 +1814,13 @@ CBaselineSolver::CBaselineSolver(CGeometry *geometry, CConfig *config, unsigned 
       node[iPoint_Local] = new CBaselineVariable(Solution, nVar, config);
     }
     iPoint_Global++;
-  }
+  }  
   
+  /*--- Close the restart file ---*/
+  
+  restart_file.close();
+#endif
+
   /*--- Instantiate the variable class with an arbitrary solution
    at any halo/periodic nodes. The initial solution can be arbitrary,
    because a send/recv is performed immediately in the solver. ---*/
@@ -1733,10 +1830,6 @@ CBaselineSolver::CBaselineSolver(CGeometry *geometry, CConfig *config, unsigned 
   
   for (iPoint = geometry->GetnPointDomain(); iPoint < geometry->GetnPoint(); iPoint++)
     node[iPoint] = new CBaselineVariable(Solution, nVar, config);
-  
-  /*--- Close the restart file ---*/
-  
-  restart_file.close();
   
   /*--- Free memory needed for the transformation ---*/
   
@@ -1917,7 +2010,7 @@ void CBaselineSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConf
   
   /*--- Restart the solution from file information ---*/
   string filename;
-  unsigned long iPoint, index;
+  unsigned long iPoint, index, iVar;
   string UnstExt, text_line, AdjExt;
   ifstream solution_file;
   unsigned short iField;
@@ -1956,6 +2049,59 @@ void CBaselineSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConf
   nVar = config->fields.size() - 1;
   double Solution[nVar];
   
+#ifdef HAVE_HDF5
+
+  /*--- open the restart file ---*/
+  hid_t file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+
+  hid_t ele_id = H5Gopen (file_id, "PointData",H5P_DEFAULT );
+
+  hid_t dset_id,space_id,mid1;
+  herr_t ret;
+
+  int npoints = geometry[ZONE_0]->GetnPointDomain();
+  hsize_t *local_idx;
+  local_idx = new hsize_t[npoints];
+  for (iPoint = 0; iPoint < geometry[ZONE_0]->GetnPointDomain(); iPoint++)
+    local_idx[iPoint] = geometry[ZONE_0]->node[iPoint]->GetGlobalIndex();
+
+  double **tmp;
+  tmp = new double*[nVar];
+  for (iVar = 0; iVar < nVar; iVar++)
+    tmp[iVar] = new double[npoints];
+
+  hsize_t dims[] = { geometry[ZONE_0]->GetnPointDomain()};
+
+  /*--- read the data ---*/
+  for (iVar = 0; iVar < nVar; iVar++)
+    {
+      dset_id = H5Dopen (ele_id, config->fields[iVar+1].c_str(),H5P_DEFAULT);
+      space_id = H5Dget_space (dset_id);
+      mid1 = H5Screate_simple(1, dims, NULL);
+  
+      ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+
+      ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, tmp[iVar]); 
+
+    }
+
+  /*--- set the nodes ---*/
+  for (iPoint = 0; iPoint < geometry[ZONE_0]->GetnPointDomain(); iPoint++)
+    {
+      for (iVar = 0; iVar < nVar; iVar++)
+	Solution[iVar] = tmp[iVar][iPoint];
+      node[iPoint] = new CBaselineVariable(Solution, nVar, config);
+    }
+
+  for (iVar = 0; iVar < nVar; iVar++)
+    delete [] tmp[iVar];
+  delete [] tmp;
+  delete [] local_idx;
+
+  H5Gclose(ele_id);
+  H5Fclose(file_id);
+
+#else
   /*--- In case this is a parallel simulation, we need to perform the
    Global2Local index transformation first. ---*/
   long *Global2Local = NULL;
@@ -2005,6 +2151,7 @@ void CBaselineSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConf
   
   /*--- Free memory needed for the transformation ---*/
   delete [] Global2Local;
+#endif
   
 }
 
