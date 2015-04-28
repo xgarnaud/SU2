@@ -52,6 +52,11 @@ ___bin_SU2_GEO_CXXFLAGS += @CGNS_CXX@
 ___bin_SU2_GEO_LDADD += @CGNS_LD@
 # endif
 
+# if BUILD_HDF5
+___bin_SU2_GEO_CXXFLAGS += @HDF5_CXX@
+___bin_SU2_GEO_LDADD += @HDF5_LD@
+# endif
+
 # if BUILD_MUTATIONPP
 ___bin_SU2_GEO_CXXFLAGS += @MUTATIONPP_CXX@
 ___bin_SU2_GEO_LDADD += @MUTATIONPP_LD@

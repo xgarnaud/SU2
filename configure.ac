@@ -43,7 +43,7 @@ AC_PREREQ([2.59])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE([subdir-objects foreign])
-m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES(yes)])
+# m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES(yes)])
 
 # AC_CONFIG_HEADERS([config.h])
 SU2_SET_COMPILERS
@@ -63,12 +63,18 @@ AC_CHECK_SIZEOF(double)
 AC_CHECK_SIZEOF(void *)
 
 # optional bindings
+AC_ARG_WITH(CGNS-dir,
+    	AS_HELP_STRING([--with-CGNS-dir[=ARG]], [CGNS install directory, ARG = path to include/ and lib/]),
+	[with_CGNS_dir=$withval], [with_CGNS_dir="no"])
 AC_ARG_WITH(CGNS-lib,
     	AS_HELP_STRING([--with-CGNS-lib[=ARG]], [CGNS library directory, ARG = path to libcgns.a]),
 	[with_CGNS_lib=$withval], [with_CGNS_lib="no"])
 AC_ARG_WITH(CGNS-include,
     	AS_HELP_STRING([--with-CGNS-include[=ARG]], [CGNS include directory, ARG = path to cgnslib.h]),
 	[with_CGNS_include=$withval], [with_CGNS_include="no"])
+AC_ARG_WITH(HDF5-dir,
+    	AS_HELP_STRING([--with-HDF5-dir[=ARG]], [HDF5 install directory, ARG = path to include/ and lib/]),
+	[with_HDF5_dir=$withval], [with_HDF5_dir="no"])
 AC_ARG_WITH(Mutationpp-lib,
    	AS_HELP_STRING([--with-Mutationpp-lib[=ARG]], [Mutation++ library directory, ARG = path to libmutation++.dylib]),
 	[with_Mutationpp_lib=$withval], [with_Mutationpp_lib="no"])
@@ -161,9 +167,73 @@ AC_SUBST([su2_externals_LIBS])
 ##########################
 
 # check for lib
+HDF5lib=libhdf5.a
+HDF5header=hdf5.h
+HDF5lib_hl=libhdf5_hl.a
+HDF5header_hl=hdf5_hl.h
+
+have_HDF5="no"
+
+if test "$with_HDF5_dir" != "no"
+then
+  	AC_CHECK_FILE([$with_HDF5_dir/lib/$HDF5lib],[have_HDF5="yes"],[have_HDF5="no"])
+	if test "$have_HDF5" == "no"
+	then
+		AC_MSG_ERROR([HDF5 requested but library file not found.])
+	fi
+  	AC_CHECK_FILE([$with_HDF5_dir/lib/$HDF5lib_hl],[have_HDF5="yes"],[have_HDF5="no"])
+	if test "$have_HDF5" == "no"
+	then
+		AC_MSG_ERROR([HDF5_HL requested but library file not found.])
+	fi
+fi
+
+# check for header
+if test "$have_HDF5" != "no"
+then
+	if test "$with_HDF5_dir" != "no"
+	then
+		AC_CHECK_FILE([$with_HDF5_dir/include/$HDF5header],[have_HDF5='yes'],[have_HDF5='no'])
+		if test "$have_HDF5" == "no"
+		then
+			AC_MSG_ERROR([HDF5 requested but header file not found.])
+		fi
+		AC_CHECK_FILE([$with_HDF5_dir/include/$HDF5header_hl],[have_HDF5='yes'],[have_HDF5='no'])
+		if test "$have_HDF5" == "no"
+		then
+			AC_MSG_ERROR([HDF5_HL requested but header file not found.])
+		fi
+	else
+		have_HDF5="no"
+	fi
+fi
+
+if test "$have_HDF5" != "no"
+then
+  	AM_CONDITIONAL(BUILD_HDF5,true)
+	HDF5_CXX="-DHAVE_HDF5 -I"$with_HDF5_dir/include""
+	HDF5_LD=""$with_HDF5_dir/lib"/$HDF5lib "$with_HDF5_dir/lib"/$HDF5lib_hl -ldl -lz -lpthread -lm"
+else
+	AM_CONDITIONAL(BUILD_HDF5,false)
+	HDF5_CXX=
+	HDF5_LD=
+fi
+AC_SUBST([HDF5_CXX])
+AC_SUBST([HDF5_LD])
+
+##########################
+
+# check for lib
 CGNSlib=libcgns.a
 CGNSheader=cgnslib.h
 have_CGNS="no"
+
+if test "$with_CGNS_dir" != "no"
+then
+	with_CGNS_lib=$with_CGNS_dir/lib
+	with_CGNS_include=$with_CGNS_dir/include
+fi
+	
 
 if test "$with_CGNS_lib" != "no"
 then
@@ -405,7 +475,12 @@ Build Configuration Summary:
     Preprocessor flags:   ${CPPFLAGS}
     Compiler flags:       ${CXXFLAGS}
     Linker flags:         ${LDFLAGS}
+    HDF5 support:         $have_HDF5
+    HDF5 includes:        $HDF5_CXX
+    HDF5 libs:            $HDF5_LD
     CGNS support:         $have_CGNS
+    CGNS includes:        $CGNS_CXX
+    CGNS libs:            $CGNS_LD
     MPI support:          $have_MPI
     Metis support:        $enablemetis
     Parmetis support:     $enableparmetis
@@ -416,6 +491,7 @@ Build Configuration Summary:
 
     External includes:    $su2_externals_INCLUDES
     External libs:        $su2_externals_LIBS
+
 
     Build SU2_CFD:        $build_CFD
     Build SU2_DOT:        $build_DOT

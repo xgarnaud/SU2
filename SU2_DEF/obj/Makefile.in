@@ -183,6 +183,8 @@ CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CGNS_CXX = @CGNS_CXX@
 CGNS_LD = @CGNS_LD@
+HDF5_CXX = @HDF5_CXX@
+HDF5_LD = @HDF5_LD@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
@@ -323,7 +325,7 @@ ___bin_SU2_DEF_SOURCES = ../include/SU2_DEF.hpp \
 ___bin_SU2_DEF_CXXFLAGS = @su2_externals_INCLUDES@ @CGNS_CXX@ \
 	@MUTATIONPP_CXX@ @JSONCPP_CXX@ $(am__empty)
 ___bin_SU2_DEF_LDADD = ../../Common/lib/libSU2.a @su2_externals_LIBS@ \
-	@CGNS_LD@ @MUTATIONPP_LD@ @JSONCPP_LD@ $(am__empty)
+	@CGNS_LD@ @HDF5_LD@ @MUTATIONPP_LD@ @JSONCPP_LD@ $(am__empty)
 all: all-am
 
 .SUFFIXES:

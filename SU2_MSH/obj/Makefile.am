@@ -53,6 +53,11 @@ ___bin_SU2_MSH_CXXFLAGS += @CGNS_CXX@
 ___bin_SU2_MSH_LDADD += @CGNS_LD@
 # endif
 
+# if BUILD_HDF5
+___bin_SU2_MSH_CXXFLAGS += @HDF5_CXX@
+___bin_SU2_MSH_LDADD += @HDF5_LD@
+# endif
+
 # if BUILD_MUTATIONPP
 ___bin_SU2_MSH_CXXFLAGS += @MUTATIONPP_CXX@
 ___bin_SU2_MSH_LDADD += @MUTATIONPP_LD@

@@ -239,6 +239,8 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+HDF5_CXX = @HDF5_CXX@
+HDF5_LD = @HDF5_LD@
 CGNS_CXX = @CGNS_CXX@
 CGNS_LD = @CGNS_LD@
 CPP = @CPP@
@@ -450,10 +452,10 @@ ___bin_SU2_CFD_SOURCES = ../include/definition_structure.hpp \
 # endif
 
 # if BUILD_JSONCPP
-___bin_SU2_CFD_CXXFLAGS = @su2_externals_INCLUDES@ @CGNS_CXX@ \
+___bin_SU2_CFD_CXXFLAGS = @su2_externals_INCLUDES@ @CGNS_CXX@ @HDF5_CXX@ \
 	@MUTATIONPP_CXX@ @JSONCPP_CXX@ $(am__empty)
 ___bin_SU2_CFD_LDADD = ../../Common/lib/libSU2.a @su2_externals_LIBS@ \
-	@CGNS_LD@ @MUTATIONPP_LD@ @JSONCPP_LD@ $(am__empty)
+	@CGNS_LD@ @HDF5_LD@ @MUTATIONPP_LD@ @JSONCPP_LD@ $(am__empty)
 all: all-am
 
 .SUFFIXES:

@@ -171,11 +171,19 @@ def convert_struct(ifname,ofname):
         idx = npts + np.arange(n)
         idx = idx.reshape(x.shape)
 
+        els_0 = idx[:-1,:-1,:-1]
+        els_1 = idx[:-1,:-1,:-1]
+        els_2 = idx[:-1,:-1,:-1]
+        els_3 = idx[:-1,:-1,:-1]
+        
+
         added_zones[zone[0]] = [idx,x.reshape(n),y.reshape(n),z.reshape(n)]
 
         # get the block interfaces
         gridconnectivities = CGU.hasChildType(zone,'ZoneGridConnectivity_t')
         for gridconnectivity in gridconnectivities:
+
+            # matching interfaces
             interfaces = CGU.hasChildType(gridconnectivity,'GridConnectivity1to1_t')
             for interface in interfaces:
                 opp    = CGU.getValueByPath(interface,'.')
@@ -214,6 +222,7 @@ def convert_struct(ifname,ofname):
                                     ok = True
                                     break                                
                     assert(ok)
+            
         
     # if abs(z).max() > 1e-10:
     #     ndims = 3

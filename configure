@@ -653,6 +653,10 @@ CGNS_LD
 CGNS_CXX
 BUILD_CGNS_FALSE
 BUILD_CGNS_TRUE
+HDF5_LD
+HDF5_CXX
+BUILD_HDF5_FALSE
+BUILD_HDF5_TRUE
 su2_externals_LIBS
 su2_externals_INCLUDES
 BUILD_PARMETIS_FALSE
@@ -696,10 +700,6 @@ CPPFLAGS
 LDFLAGS
 CXXFLAGS
 CXX
-AM_BACKSLASH
-AM_DEFAULT_VERBOSITY
-AM_DEFAULT_V
-AM_V
 am__untar
 am__tar
 AMTAR
@@ -776,13 +776,14 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
-enable_silent_rules
 enable_mpi
 with_cxx
 enable_dependency_tracking
 with_cc
+with_CGNS_dir
 with_CGNS_lib
 with_CGNS_include
+with_HDF5_dir
 with_Mutationpp_lib
 with_Mutationpp_include
 with_Jsoncpp_lib
@@ -1433,8 +1434,6 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --enable-silent-rules   less verbose build output (undo: "make V=1")
-  --disable-silent-rules  verbose build output (undo: "make V=0")
   --enable-mpi            build with MPI message passing support
   --enable-dependency-tracking
                           do not reject slow dependency extractors
@@ -1456,8 +1455,12 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-cxx=CXX          C++ compiler to use
   --with-cc=CC            C compiler to use
+  --with-CGNS-dir=ARG     CGNS install directory, ARG = path to include/ and
+                          lib/
   --with-CGNS-lib=ARG     CGNS library directory, ARG = path to libcgns.a
   --with-CGNS-include=ARG CGNS include directory, ARG = path to cgnslib.h
+  --with-HDF5-dir=ARG     HDF5 install directory, ARG = path to include/ and
+                          lib/
   --with-Mutationpp-lib=ARG
                           Mutation++ library directory, ARG = path to
                           libmutation++.dylib
@@ -3015,45 +3018,7 @@ am__tar='$${TAR-tar} chof - "$$tardir"' am__untar='$${TAR-tar} xf -'
 
 
 
-# Check whether --enable-silent-rules was given.
-if test "${enable_silent_rules+set}" = set; then :
-  enableval=$enable_silent_rules;
-fi
-
-case $enable_silent_rules in # (((
-  yes) AM_DEFAULT_VERBOSITY=0;;
-   no) AM_DEFAULT_VERBOSITY=1;;
-    *) AM_DEFAULT_VERBOSITY=0;;
-esac
-am_make=${MAKE-make}
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $am_make supports nested variables" >&5
-$as_echo_n "checking whether $am_make supports nested variables... " >&6; }
-if ${am_cv_make_support_nested_variables+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  if $as_echo 'TRUE=$(BAR$(V))
-BAR0=false
-BAR1=true
-V=1
-am__doit:
-	@$(TRUE)
-.PHONY: am__doit' | $am_make -f - >/dev/null 2>&1; then
-  am_cv_make_support_nested_variables=yes
-else
-  am_cv_make_support_nested_variables=no
-fi
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $am_cv_make_support_nested_variables" >&5
-$as_echo "$am_cv_make_support_nested_variables" >&6; }
-if test $am_cv_make_support_nested_variables = yes; then
-    AM_V='$(V)'
-  AM_DEFAULT_V='$(AM_DEFAULT_VERBOSITY)'
-else
-  AM_V=$AM_DEFAULT_VERBOSITY
-  AM_DEFAULT_V=$AM_DEFAULT_VERBOSITY
-fi
-AM_BACKSLASH='\'
-
+# m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES(yes)])
 
 # AC_CONFIG_HEADERS([config.h])
 DEPDIR="${am__leading_dot}deps"
@@ -5150,6 +5115,14 @@ _ACEOF
 
 # optional bindings
 
+# Check whether --with-CGNS-dir was given.
+if test "${with_CGNS_dir+set}" = set; then :
+  withval=$with_CGNS_dir; with_CGNS_dir=$withval
+else
+  with_CGNS_dir="no"
+fi
+
+
 # Check whether --with-CGNS-lib was given.
 if test "${with_CGNS_lib+set}" = set; then :
   withval=$with_CGNS_lib; with_CGNS_lib=$withval
@@ -5163,6 +5136,14 @@ if test "${with_CGNS_include+set}" = set; then :
   withval=$with_CGNS_include; with_CGNS_include=$withval
 else
   with_CGNS_include="no"
+fi
+
+
+# Check whether --with-HDF5-dir was given.
+if test "${with_HDF5_dir+set}" = set; then :
+  withval=$with_HDF5_dir; with_HDF5_dir=$withval
+else
+  with_HDF5_dir="no"
 fi
 
 
@@ -5593,9 +5574,175 @@ ac_config_files="$ac_config_files externals/parmetis/Makefile"
 ##########################
 
 # check for lib
+HDF5lib=libhdf5.a
+HDF5header=hdf5.h
+HDF5lib_hl=libhdf5_hl.a
+HDF5header_hl=hdf5_hl.h
+
+have_HDF5="no"
+
+if test "$with_HDF5_dir" != "no"
+then
+  	as_ac_File=`$as_echo "ac_cv_file_$with_HDF5_dir/lib/$HDF5lib" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $with_HDF5_dir/lib/$HDF5lib" >&5
+$as_echo_n "checking for $with_HDF5_dir/lib/$HDF5lib... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$with_HDF5_dir/lib/$HDF5lib"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+  have_HDF5="yes"
+else
+  have_HDF5="no"
+fi
+
+	if test "$have_HDF5" == "no"
+	then
+		as_fn_error $? "HDF5 requested but library file not found." "$LINENO" 5
+	fi
+  	as_ac_File=`$as_echo "ac_cv_file_$with_HDF5_dir/lib/$HDF5lib_hl" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $with_HDF5_dir/lib/$HDF5lib_hl" >&5
+$as_echo_n "checking for $with_HDF5_dir/lib/$HDF5lib_hl... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$with_HDF5_dir/lib/$HDF5lib_hl"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+  have_HDF5="yes"
+else
+  have_HDF5="no"
+fi
+
+	if test "$have_HDF5" == "no"
+	then
+		as_fn_error $? "HDF5_HL requested but library file not found." "$LINENO" 5
+	fi
+fi
+
+# check for header
+if test "$have_HDF5" != "no"
+then
+	if test "$with_HDF5_dir" != "no"
+	then
+		as_ac_File=`$as_echo "ac_cv_file_$with_HDF5_dir/include/$HDF5header" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $with_HDF5_dir/include/$HDF5header" >&5
+$as_echo_n "checking for $with_HDF5_dir/include/$HDF5header... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$with_HDF5_dir/include/$HDF5header"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+  have_HDF5='yes'
+else
+  have_HDF5='no'
+fi
+
+		if test "$have_HDF5" == "no"
+		then
+			as_fn_error $? "HDF5 requested but header file not found." "$LINENO" 5
+		fi
+		as_ac_File=`$as_echo "ac_cv_file_$with_HDF5_dir/include/$HDF5header_hl" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $with_HDF5_dir/include/$HDF5header_hl" >&5
+$as_echo_n "checking for $with_HDF5_dir/include/$HDF5header_hl... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$with_HDF5_dir/include/$HDF5header_hl"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+  have_HDF5='yes'
+else
+  have_HDF5='no'
+fi
+
+		if test "$have_HDF5" == "no"
+		then
+			as_fn_error $? "HDF5_HL requested but header file not found." "$LINENO" 5
+		fi
+	else
+		have_HDF5="no"
+	fi
+fi
+
+if test "$have_HDF5" != "no"
+then
+  	 if true; then
+  BUILD_HDF5_TRUE=
+  BUILD_HDF5_FALSE='#'
+else
+  BUILD_HDF5_TRUE='#'
+  BUILD_HDF5_FALSE=
+fi
+
+	HDF5_CXX="-DHAVE_HDF5 -I"$with_HDF5_dir/include""
+	HDF5_LD=""$with_HDF5_dir/lib"/$HDF5lib "$with_HDF5_dir/lib"/$HDF5lib_hl -ldl -lz -lpthread -lm"
+else
+	 if false; then
+  BUILD_HDF5_TRUE=
+  BUILD_HDF5_FALSE='#'
+else
+  BUILD_HDF5_TRUE='#'
+  BUILD_HDF5_FALSE=
+fi
+
+	HDF5_CXX=
+	HDF5_LD=
+fi
+
+
+
+##########################
+
+# check for lib
 CGNSlib=libcgns.a
 CGNSheader=cgnslib.h
 have_CGNS="no"
+
+if test "$with_CGNS_dir" != "no"
+then
+	with_CGNS_lib=$with_CGNS_dir/lib
+	with_CGNS_include=$with_CGNS_dir/include
+fi
+
 
 if test "$with_CGNS_lib" != "no"
 then
@@ -6236,6 +6383,14 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${BUILD_PARMETIS_TRUE}" && test -z "${BUILD_PARMETIS_FALSE}"; then
   as_fn_error $? "conditional \"BUILD_PARMETIS\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${BUILD_HDF5_TRUE}" && test -z "${BUILD_HDF5_FALSE}"; then
+  as_fn_error $? "conditional \"BUILD_HDF5\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${BUILD_HDF5_TRUE}" && test -z "${BUILD_HDF5_FALSE}"; then
+  as_fn_error $? "conditional \"BUILD_HDF5\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${BUILD_CGNS_TRUE}" && test -z "${BUILD_CGNS_FALSE}"; then
@@ -7491,7 +7646,12 @@ Build Configuration Summary:
     Preprocessor flags:   ${CPPFLAGS}
     Compiler flags:       ${CXXFLAGS}
     Linker flags:         ${LDFLAGS}
+    HDF5 support:         $have_HDF5
+    HDF5 includes:        $HDF5_CXX
+    HDF5 libs:            $HDF5_LD
     CGNS support:         $have_CGNS
+    CGNS includes:        $CGNS_CXX
+    CGNS libs:            $CGNS_LD
     MPI support:          $have_MPI
     Metis support:        $enablemetis
     Parmetis support:     $enableparmetis
@@ -7502,6 +7662,7 @@ Build Configuration Summary:
 
     External includes:    $su2_externals_INCLUDES
     External libs:        $su2_externals_LIBS
+
 
     Build SU2_CFD:        $build_CFD
     Build SU2_DOT:        $build_DOT
@@ -7566,7 +7727,12 @@ Build Configuration Summary:
     Preprocessor flags:   ${CPPFLAGS}
     Compiler flags:       ${CXXFLAGS}
     Linker flags:         ${LDFLAGS}
+    HDF5 support:         $have_HDF5
+    HDF5 includes:        $HDF5_CXX
+    HDF5 libs:            $HDF5_LD
     CGNS support:         $have_CGNS
+    CGNS includes:        $CGNS_CXX
+    CGNS libs:            $CGNS_LD
     MPI support:          $have_MPI
     Metis support:        $enablemetis
     Parmetis support:     $enableparmetis
@@ -7577,6 +7743,7 @@ Build Configuration Summary:
 
     External includes:    $su2_externals_INCLUDES
     External libs:        $su2_externals_LIBS
+
 
     Build SU2_CFD:        $build_CFD
     Build SU2_DOT:        $build_DOT
