@@ -10179,21 +10179,21 @@ void CEulerSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig 
     
   }
   
-  int nCons = 0;
-  if (compressible)
-    nCons = 2+nDim;
-  if (incompressible)
-    nCons = 1+nDim;
-  if (freesurface)
-    nCons = 2+nDim;
+  // int nCons = 0;
+  // if (compressible)
+  //   nCons = 2+nDim;
+  // if (incompressible)
+  //   nCons = 1+nDim;
+  // if (freesurface)
+  //   nCons = 2+nDim;
 
   double ** cons;
-  cons = new double* [nCons];
-  for (iVar = 0; iVar < nCons; iVar++)
+  cons = new double* [nVar];
+  for (iVar = 0; iVar < nVar; iVar++)
     cons[iVar] = new double [npoints];
 
   ostringstream sstm;  
-  for (iVar = 0; iVar < nCons; iVar++){
+  for (iVar = 0; iVar < nVar; iVar++){
     sstm.clear(); sstm.str("");
     sstm << "Conservative_" << iVar+1 ;
 
@@ -10205,13 +10205,13 @@ void CEulerSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig 
   }
 
   for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++){
-    for (iVar = 0; iVar < nCons; iVar++)
+    for (iVar = 0; iVar < nVar; iVar++)
       Solution[iVar] = cons[iVar][iPoint];
     
     node[iPoint]->SetSolution(Solution);
   }
 
-  for (iVar = 0; iVar < nCons; iVar++)
+  for (iVar = 0; iVar < nVar; iVar++)
     delete [] cons[iVar];
   delete [] cons;
   delete [] local_idx;
@@ -11004,7 +11004,61 @@ CNSSolver::CNSSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
         cout << "There is no flow restart file!! " << filename.data() << "."<< endl;
       exit(EXIT_FAILURE);
     }
+#ifdef HAVE_HDF5
+  /*--- open the restart file ---*/
+  hid_t file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+
+  hid_t ele_id = H5Gopen (file_id, "PointData",H5P_DEFAULT );
+
+  hid_t dset_id,space_id,mid1;
+  herr_t ret;
+
+  
+  /*--- get the global indices of the local points ---*/
+
+  int npoints = geometry->GetnPointDomain();
+  hsize_t *local_idx;
+  local_idx = new hsize_t[npoints];
+  for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++)
+    local_idx[iPoint] = geometry->node[iPoint]->GetGlobalIndex();
+
+  hsize_t dims[] = { geometry->GetnPointDomain()};
+
+  double ** cons;
+  cons = new double* [nVar];
+  for (iVar = 0; iVar < nVar; iVar++)
+    cons[iVar] = new double [npoints];
+
+  ostringstream sstm;  
+  for (iVar = 0; iVar < nVar; iVar++){
+    sstm.clear(); sstm.str("");
+    sstm << "Conservative_" << iVar+1 ;
+
+    dset_id = H5Dopen (ele_id, sstm.str().c_str(),H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, cons[iVar]); 
+  }
+
+  for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++){
+    for (iVar = 0; iVar < nVar; iVar++)
+      Solution[iVar] = cons[iVar][iPoint];
     
+    node[iPoint] = new CNSVariable(Solution, nDim, nVar, config);
+  }
+
+  for (iVar = 0; iVar < nVar; iVar++)
+    delete [] cons[iVar];
+  delete [] cons;
+  delete [] local_idx;
+
+  H5Gclose(ele_id);
+  H5Fclose(file_id);
+
+  unsigned short rbuf_NotMatching = 0, sbuf_NotMatching = 0;
+
+#else
     /*--- In case this is a parallel simulation, we need to perform the
      Global2Local index transformation first. ---*/
     
@@ -11068,7 +11122,11 @@ CNSSolver::CNSSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
     /*--- Detect a wrong solution file ---*/
 
     if (iPoint_Global_Local < nPointDomain) { sbuf_NotMatching = 1; }
+
+    delete [] Global2Local;
     
+#endif
+
 #ifndef HAVE_MPI
     rbuf_NotMatching = sbuf_NotMatching;
 #else
@@ -11102,7 +11160,6 @@ CNSSolver::CNSSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
     
     /*--- Free memory needed for the transformation ---*/
     
-    delete [] Global2Local;
     
   }
   
