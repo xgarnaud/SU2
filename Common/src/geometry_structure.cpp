@@ -5398,7 +5398,7 @@ CPhysicalGeometry::CPhysicalGeometry(CGeometry *geometry, CConfig *config, int o
     delete [] Marker_All_TagBound_Copy;
     delete [] PointIn;
     for (iMarker = 0; iMarker < geometry->GetnMarker(); iMarker++)
-      delete VertexIn[iMarker];
+      delete[] VertexIn[iMarker];
     delete[] VertexIn;
   }
   
@@ -5788,19 +5788,19 @@ void CPhysicalGeometry::SetBoundaries(CConfig *config) {
   
   delete [] DomainSendCount;
   for (iDomain = 0; iDomain < nDomain; iDomain++)
-    delete DomainSendMarkers[iDomain];
+    delete[] DomainSendMarkers[iDomain];
   delete[] DomainSendMarkers;
   
   delete [] DomainReceiveCount;
   for (iDomain = 0; iDomain < nDomain; iDomain++)
-    delete DomainReceiveMarkers[iDomain];
+    delete[] DomainReceiveMarkers[iDomain];
   delete[] DomainReceiveMarkers;
   
   /*--- Deallocate the bound variables ---*/
   
   for (iMarker = 0; iMarker < nMarker; iMarker++)
-    delete bound[iMarker];
-  delete bound;
+    delete[] bound[iMarker];
+  delete[] bound;
   
   /*--- Allocate the new bound variables, and set the number of markers ---*/
   

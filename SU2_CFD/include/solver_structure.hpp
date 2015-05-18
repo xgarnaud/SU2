@@ -3543,7 +3543,8 @@ private:
 	*CQ_Visc,		/*!< \brief Torque coefficient (viscous contribution) for each boundary. */
   *Heat_Visc,		/*!< \brief Heat load (viscous contribution) for each boundary. */
   *MaxHeatFlux_Visc, /*!< \brief Maximum heat flux (viscous contribution) for each boundary. */
-	**CSkinFriction;	/*!< \brief Skin friction coefficient for each boundary and vertex. */
+	  **CSkinFriction,	/*!< \brief Skin friction coefficient for each boundary and vertex. */
+	  **WMWallShearStress; /*!< \brief wall modeled wall shear stress for each boundary and vertex. */
 	double *ForceViscous,	/*!< \brief Viscous force for each boundary. */
 	*MomentViscous;			/*!< \brief Inviscid moment for each boundary. */
 	double AllBound_CDrag_Visc, /*!< \brief Drag coefficient (viscous contribution) for all the boundaries. */
@@ -3562,7 +3563,7 @@ private:
   AllBound_HeatFlux_Visc,		/*!< \brief Heat load (viscous contribution) for all the boundaries. */
   AllBound_MaxHeatFlux_Visc; /*!< \brief Maximum heat flux (viscous contribution) for all boundaries. */
   double StrainMag_Max, Omega_Max; /*!< \brief Maximum Strain Rate magnitude and Omega. */
-  
+  bool useWM; /*!< \brief use a wall model?. */
 public:
   
 	/*!

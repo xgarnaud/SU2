@@ -1,4 +1,4 @@
-export SU2_RUN="/home/xgarnaud/local/SU2/bin"
+export SU2_RUN="/data/xavier/local/SU2/bin"
 export SU2_HOME="/data/xavier/SU2"
 export PATH=$PATH:$SU2_RUN
 export PYTHONPATH=$PYTHONPATH:$SU2_RUN

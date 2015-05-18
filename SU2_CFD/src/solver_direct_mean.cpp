@@ -11232,6 +11232,22 @@ CNSSolver::CNSSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
   if (config->GetKind_Gradient_Method() == WEIGHTED_LEAST_SQUARES) least_squares = true;
   else least_squares = false;
   
+  useWM = config->GetWall_Functions();
+  if (useWM){
+    WMWallShearStress = new double*[config->GetnMarker_All()];
+    for (unsigned short iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++)
+      {
+  	switch (config->GetMarker_All_KindBC(iMarker)) {
+  	case HEAT_FLUX:
+	  WMWallShearStress[iMarker] = new double[geometry->nVertex[iMarker]];
+	  for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++)
+	    WMWallShearStress[iMarker][iVertex] = 0.0;
+  	  break;
+	default:
+	  WMWallShearStress[iMarker] = new double[1];
+  	}  
+      }
+  }
   /*--- Perform the MPI communication of the solution ---*/
   
   Set_MPI_Solution(geometry, config);
@@ -11280,6 +11296,12 @@ CNSSolver::~CNSSolver(void) {
     delete [] CSkinFriction;
   }
 
+  if (useWM){
+    for (iMarker = 0; iMarker < nMarker; iMarker++) {
+      delete[] WMWallShearStress[iMarker];
+    }
+    delete[] WMWallShearStress;
+  }
 }
 
 void CNSSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh, unsigned short iRKStep, unsigned short RunTime_EqSystem, bool Output) {
@@ -12708,7 +12730,7 @@ void CNSSolver::Fix_Gradients_WM(CGeometry *geometry, CSolver **solver_container
 
   unsigned short iNode;
   unsigned long iPoint_Neighbor;
-  double unitNormal[3],neighborVel[3],Vorticity[3], unitTan[3], unitTan_avg[3];
+  double unitNormal[3],neighborVel[3],Vorticity[3], unitTan[3], unitTan_Point[3];
   double neighborP,neighborT,neighborVelTang[3],neighborWallProj[3];
   double Tau[3][3],TauElem[3],TauTangent[3],**Grad_PrimVar;
 
@@ -12721,7 +12743,6 @@ void CNSSolver::Fix_Gradients_WM(CGeometry *geometry, CSolver **solver_container
   Wall_HeatFlux = config->GetWall_HeatFlux(Marker_Tag);
 
   /*--- Loop over all of the vertices on this boundary marker ---*/
-  
   for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
     iPoint = geometry->vertex[val_marker][iVertex]->GetNode();
 
@@ -12747,13 +12768,20 @@ void CNSSolver::Fix_Gradients_WM(CGeometry *geometry, CSolver **solver_container
       const double mu        = node[iPoint]->GetLaminarViscosity();
       const double nu        = mu/Density;
       
-      double weight = 0.0;
-      double tauw_avg = 0.0;
-      double tauw_lam_avg = 0.0;
-      double yPlus_avg = 0.0;
-      for (iDim = 0; iDim < nDim; iDim++)
-	unitTan_avg[iDim] = 0.0;
+      // // double weight = 0.0;
+      // // double tauw_avg = 0.0;
+      // // double tauw_lam_avg = 0.0;
+      // // double yPlus_avg = 0.0;
+      // double ymin = 1e10;
+      // double tauw = 0.;
+      // double yPlus_ref = 0.;
 
+      double minDist = 1e10;
+      for (iDim = 0; iDim < nDim; iDim++)
+	unitTan_Point[iDim] = 0.0;
+      double tauw_Point = 0.0, yPlus_Point = 0.0;
+
+      /*--- Loop over all neighbor nodes ---*/
       for(iNode = 0; iNode < geometry->node[iPoint]->GetnPoint(); iNode++) {
       	iPoint_Neighbor = geometry->node[iPoint]->GetPoint(iNode);
 
@@ -12774,31 +12802,31 @@ void CNSSolver::Fix_Gradients_WM(CGeometry *geometry, CSolver **solver_container
 	for (iDim = 0; iDim < nDim; iDim++)
 	  neighborVelTangMod += neighborVelTang[iDim]*neighborVelTang[iDim];
 	neighborVelTangMod = sqrt(neighborVelTangMod);
+
+	/*---  y ---*/
+	double neighborWallDist = 0.0;
+	for (iDim = 0; iDim < nDim; iDim++)
+	  neighborWallDist += unitNormal[iDim] * (neighborCoords[iDim] - vertexCoords[iDim]);
+	for (iDim = 0; iDim < nDim; iDim++)
+	  neighborWallProj[iDim] = neighborCoords[iDim] - unitNormal[iDim]*neighborWallDist;
+	neighborWallDist = abs(neighborWallDist);
+
+	double neighborTanDist = 0.0;
+	for (iDim = 0; iDim < nDim; iDim++)
+	  neighborTanDist += (neighborWallProj[iDim] - vertexCoords[iDim])*(neighborWallProj[iDim] - vertexCoords[iDim]);
+	neighborTanDist  = sqrt(neighborTanDist);
 	
+	double neighborDist = 0.0;
+	for (iDim = 0; iDim < nDim; iDim++)
+	  neighborDist += (neighborCoords[iDim] - vertexCoords[iDim]) * (neighborCoords[iDim] - vertexCoords[iDim]);
+	neighborDist = sqrt(neighborDist);
+      	
 	/*---  Check if the neighbor point belongs to a wall ---*/
-	if (neighborVelTangMod > 1e-10){
+	if (neighborVelTangMod > 1e-10 && neighborWallDist > 1e-10){
 
 	  /*---  Tangential velocity direction ---*/
       	  for (iDim = 0; iDim < nDim; iDim++)
       	    unitTan[iDim] = neighborVelTang[iDim]/neighborVelTangMod;
-
-	  /*---  y ---*/
-      	  double neighborWallDist = 0.0;
-      	  for (iDim = 0; iDim < nDim; iDim++)
-      	    neighborWallDist += unitNormal[iDim] * (neighborCoords[iDim] - vertexCoords[iDim]);
-
-      	  for (iDim = 0; iDim < nDim; iDim++)
-      	    neighborWallProj[iDim] = neighborCoords[iDim] - unitNormal[iDim]*neighborWallDist;
-
-      	  double neighborTanDist = 0.0;
-      	  for (iDim = 0; iDim < nDim; iDim++)
-      	    neighborTanDist += (neighborWallProj[iDim] - vertexCoords[iDim])*(neighborWallProj[iDim] - vertexCoords[iDim]);
-
-      	  neighborWallDist = abs(neighborWallDist);
-      	  neighborTanDist  = sqrt(neighborTanDist);
-	  
-      	  const double nodeWeight = 1./(neighborTanDist + 1e-10);
-      	  weight += nodeWeight;
 
 	  /*---  Compute uTau from neighborVelTangMod & neighborWallDist ---*/
       	  const double kappa = .41;
@@ -12846,41 +12874,36 @@ void CNSSolver::Fix_Gradients_WM(CGeometry *geometry, CSolver **solver_container
 	  kUu   = min(kappa*uPlus, 50.);
 	  
 	  const double dyp_dup      = 1. + kappa/E*(exp(kUu)-1.-kUu-kUu*kUu/2.);
+	  const double tauw         = uTau*uTau *Density_Neighbor;
 
-	  /*---  laminar and modeled wall shear stress ---*/
-	  double tauw          = uTau*uTau *Density_Neighbor;
-
+	  /*--- Modify the gradient at the neighbor point ---*/
 	  Grad_PrimVar  = node[iPoint_Neighbor]->GetGradient_Primitive();
+      	  if (yPlus > .1) // Do not modify the gradients if clearly in the linear layer
+      	    for (iDim = 0; iDim < nDim; iDim++) 
+      	      for (jDim = 0 ; jDim < nDim; jDim++) 
+      	  	Grad_PrimVar[iDim+1][jDim] = -unitTan[iDim]*unitNormal[jDim]*tauw/mu_Neighbor/dyp_dup ;
 
-	  if (yPlus > .1) // Do not modify the gradients if clearly in the linear layer
-	    for (iDim = 0; iDim < nDim; iDim++) 
-	      for (jDim = 0 ; jDim < nDim; jDim++) 
-	  	Grad_PrimVar[iDim+1][jDim] = -unitTan[iDim]*unitNormal[jDim]*tauw/mu_Neighbor/dyp_dup ;//(mu+mut);
-
-	  /*---  average values ---*/
-	  tauw_avg     += tauw     * nodeWeight;
-	  yPlus_avg    += yPlus    * nodeWeight;
-
-	  for (iDim = 0; iDim < nDim; iDim++)
-	    unitTan_avg[iDim] += unitTan[iDim] * nodeWeight;
-
-      	}
+	  /*---  at the wall, use tauw from the closest neighbor ---*/
+	  if (neighborDist < minDist)
+	    {
+	      minDist = neighborDist;
+	      tauw_Point = tauw;
+	      yPlus_Point = yPlus;
+	      for (iDim = 0; iDim < nDim; iDim++)
+		unitTan_Point[iDim] = unitTan[iDim];
+			      
+	    }
+	}
       }
 
-      if (fabs(weight) > 1e-12){
-	tauw_avg /= weight;
-	yPlus_avg /= weight;
-	for (iDim = 0; iDim < nDim; iDim++)
-	  unitTan_avg[iDim] /= weight;
-      }
+      WMWallShearStress[val_marker][iVertex] = tauw_Point;
 
       Grad_PrimVar  = node[iPoint]->GetGradient_Primitive();
-
-      if (yPlus_avg > .1)
+      if (yPlus_Point > .1)
 	for (iDim = 0; iDim < nDim; iDim++) 
 	  for (jDim = 0 ; jDim < nDim; jDim++) 
-	    Grad_PrimVar[iDim+1][jDim]  = -unitTan_avg[iDim]*unitNormal[jDim] * tauw_avg / mu;
-           
+	    Grad_PrimVar[iDim+1][jDim]  = -unitTan_Point[iDim]*unitNormal[jDim] * tauw_Point / mu;
+      
     }
   }
 }
