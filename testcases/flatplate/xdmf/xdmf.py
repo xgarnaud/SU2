@@ -26,6 +26,16 @@ class XDMFZone(object):
         self.conn_path = conn_path
         self.nc = nc
         self.np_p_c = np_p_c
+        self.mixed = False
+
+    def set_connectivity_mixed(self,conn_type,conn_file,conn_path,nc,ntot):
+        
+        self.conn_type = conn_type
+        self.conn_file = conn_file
+        self.conn_path = conn_path
+        self.nc = nc
+        self.ntot = ntot
+        self.mixed = True
 
     def add_vfield(self,field_file,field_name,field_path):
 
@@ -40,7 +50,10 @@ class XDMFZone(object):
         ie = 0
         f.write('         <Grid Name="%s">\n'%self.name)
         f.write('           <Topology TopologyType="%s" NumberOfElements="%d" >\n'%(self.conn_type,self.nc))
-        f.write('             <DataItem Format="HDF" DataType="Int" Dimensions="%d %d">\n'%(self.nc,self.np_p_c))
+        if self.mixed:
+            f.write('             <DataItem Format="HDF" DataType="Int" Dimensions="%d">\n'%(self.ntot))
+        else:
+            f.write('             <DataItem Format="HDF" DataType="Int" Dimensions="%d %d">\n'%(self.nc,self.np_p_c))
         f.write('               %s:%s\n'%(self.conn_file,self.conn_path))
         f.write('             </DataItem>\n')
         f.write('           </Topology>\n')

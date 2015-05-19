@@ -12768,14 +12768,6 @@ void CNSSolver::Fix_Gradients_WM(CGeometry *geometry, CSolver **solver_container
       const double mu        = node[iPoint]->GetLaminarViscosity();
       const double nu        = mu/Density;
       
-      // // double weight = 0.0;
-      // // double tauw_avg = 0.0;
-      // // double tauw_lam_avg = 0.0;
-      // // double yPlus_avg = 0.0;
-      // double ymin = 1e10;
-      // double tauw = 0.;
-      // double yPlus_ref = 0.;
-
       double minDist = 1e10;
       for (iDim = 0; iDim < nDim; iDim++)
 	unitTan_Point[iDim] = 0.0;

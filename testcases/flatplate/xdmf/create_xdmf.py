@@ -5,17 +5,24 @@ import CGNS.PAT.cgnsutils as CGU
 import CHLone
 from argparse import ArgumentParser
 import numpy as np
+import os
 
 
-#              name       npoints ndims  cgnsid xdmf_type
-ELTYPES = {3 :['line'    ,2       ,1     ,3     ,'Polyline'],
-           5 :['triangle',3       ,2     ,5     ,'Triangle'],
-           9 :['quad'    ,4       ,2     ,7     ,'Quadrilateral'],
-           10:['tetra'   ,4       ,3     ,-1    ,'Tetrahedron'],
-           12:['hexa'    ,8       ,3     ,-1    ,'Hexahedron'],
-           13:['wedge'   ,6       ,3     ,-1    ,'Wedge'],
-           14:['pyramid' ,5       ,3     ,-1    ,'Pyramid'],
+#              name       npoints ndims  cgnsid xdmf_type         xfmf_id
+ELTYPES = {3 :['line'    ,2       ,1     ,3     ,'Polyline'      ,2],
+           5 :['triangle',3       ,2     ,5     ,'Triangle'      ,4],
+           9 :['quad'    ,4       ,2     ,7     ,'Quadrilateral' ,5],
+           10:['tetra'   ,4       ,3     ,-1    ,'Tetrahedron'   ,6],
+           12:['hexa'    ,8       ,3     ,-1    ,'Hexahedron'    ,9],
+           13:['wedge'   ,6       ,3     ,-1    ,'Wedge'         ,8],
+           14:['pyramid' ,5       ,3     ,-1    ,'Pyramid'       ,7],
+           -1:['mixed'   ,-1      ,3    ,20     ,'Mixed'         ,-1],
        }
+CGNSID_MIXED = 20
+
+CG2SU = {}
+for i in ELTYPES:
+    CG2SU[ELTYPES[i][3]] = i
 
 def get_cgmesh_connectivity(fname):
 
@@ -50,14 +57,29 @@ def get_cgmesh_connectivity(fname):
     conns  = CGU.hasChildType(zone,'Elements_t')
     for conn in conns:
         eltype_cg =  CGU.getValueByPath(conn,'.')[0]
-        eltype = -1
-        for el in ELTYPES:
-            if ELTYPES[el][3] == eltype_cg: eltype = el
+        eltype_su = CG2SU[eltype_cg]
+
         elrange   = CGU.getValueByPath(conn,'ElementRange')
-        elconn    = CGU.getValueByPath(conn,'ElementConnectivity') - 1
-        nel = len(elconn) / ELTYPES[eltype][1]
-        elconn = elconn.reshape((nel,ELTYPES[eltype][1]))
-        elzones[conn[0]] = [eltype,elrange,elconn]
+        elconn    = CGU.getValueByPath(conn,'ElementConnectivity')
+
+        if not eltype_cg == CGNSID_MIXED:
+            npts_per_el = ELTYPES[eltype_su][1]
+            nel = len(elconn) / npts_per_el
+            connectivity = elconn.reshape((nel,npts_per_el)) - 1
+        else:
+            nread = 0; ntot = len(elconn)
+            while nread < ntot:
+                tmp_elid_cg = elconn[nread];
+                tmp_elid_su = CG2SU[tmp_elid_cg]
+                tmp_elid_xf = ELTYPES[tmp_elid_su][5]
+                elconn[nread] = tmp_elid_xf
+                nread +=1
+                tmp_npts    = ELTYPES[tmp_elid_su][1]
+                elconn[nread:nread+tmp_npts] -= 1
+                nread += tmp_npts
+            connectivity = elconn
+
+        elzones[conn[0]] = [eltype_su,elrange,connectivity]
 
     return elzones
 
@@ -71,7 +93,8 @@ def add_zones_h5(elzones,fname):
             dset = h5f.create_dataset(zone,data = elconn)
             dset.attrs['dim']  = ELTYPES[eltype][2]
             dset.attrs['type'] = ELTYPES[eltype][4]
-        
+            dset.attrs['nel'] = elrange[1] - elrange[0] +1
+
     h5f.close()
 
 def create_xdmf(ofname,xfname):
@@ -98,12 +121,24 @@ def create_xdmf(ofname,xfname):
     for zone in zones:
         zdim  = h5f[zone].attrs['dim']
         zType = h5f[zone].attrs['type']
-        nc,np_p_c =  h5f[zone].shape
+        s = h5f[zone].shape
+        if len(s) == 2:
+            nc,np_p_c = s
+            mixed = False
+        else:
+            ntot = s
+            mixed = True
+
         if h5f[zone].attrs['dim'] > 0:
+            print zone
             xzone = xdmf.XDMFZone(zone)
 
             xzone.set_coords(ofname,coords_paths,nv)
-            xzone.set_connectivity(zType,ofname,zone,nc,np_p_c)
+            if mixed:
+                nc = h5f[zone].attrs['nel']
+                xzone.set_connectivity_mixed(zType,ofname,zone,nc,ntot)
+            else:
+                xzone.set_connectivity(zType,ofname,zone,nc,np_p_c)
             for field in fields:
                 xzone.add_vfield(ofname,field,'PointData/%s'%field)
             xf.add_zone(xzone)
@@ -130,6 +165,7 @@ if __name__=="__main__":
                         help='xdmf file',metavar='FILE')
 
 
+    cwd = os.getcwd()
 
     options = parser.parse_args()
 

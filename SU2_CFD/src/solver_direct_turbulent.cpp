@@ -1624,7 +1624,7 @@ void CTurbSASolver::BC_HeatFlux_Wall(CGeometry *geometry, CSolver **solver_conta
     	    for (jDim = 0 ; jDim < nDim; jDim++) {
     	      Tau[iDim][jDim] = mu*(Grad_PrimVar[jDim+1][iDim] + Grad_PrimVar[iDim+1][jDim]);
     	    }
-    	    Tau[iDim][jDim] -= TWO3*mu*div_vel;
+    	    // Tau[iDim][jDim] -= TWO3*mu*div_vel; not taken into account in mean
     	  }
         
     	  /*--- Project Tau in each surface element ---*/
@@ -1657,7 +1657,7 @@ void CTurbSASolver::BC_HeatFlux_Wall(CGeometry *geometry, CSolver **solver_conta
     	      for (jDim = 0 ; jDim < nDim; jDim++) {
     		Tau[iDim][jDim] = mu*(Grad_PrimVar[jDim+1][iDim] + Grad_PrimVar[iDim+1][jDim]);
     	      }
-    	      Tau[iDim][jDim] -= TWO3*mu*div_vel;
+    	      //Tau[iDim][jDim] -= TWO3*mu*div_vel; not taken into account in mean
     	    }
         
     	    /*--- Project Tau in each surface element ---*/

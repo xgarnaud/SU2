@@ -150,9 +150,9 @@ if __name__=="__main__":
 
     h5f = h5.File('results.h5','a')
 
-    case      = "h_1e-3"
-    mesh      = "flatplate_1e-3.cgns"
-    h         = 1e-3
+    case      = "h_1e-5"
+    mesh      = "flatplate_1e-5.cgns"
+    h         = 1e-5
 
     dir_name  = os.path.join(os.getcwd(),case)
     mesh_name = os.path.join(dir_name,mesh)
