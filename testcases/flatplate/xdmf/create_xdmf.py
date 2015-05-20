@@ -164,11 +164,10 @@ if __name__=="__main__":
     parser.add_argument("-x","--xdmf", dest='xfile',
                         help='xdmf file',metavar='FILE')
 
-
     cwd = os.getcwd()
 
     options = parser.parse_args()
 
-    elzones = get_cgmesh_connectivity(options.mfile)
-    add_zones_h5(elzones,options.ofile)
-    create_xdmf(options.ofile,options.xfile)
+    elzones = get_cgmesh_connectivity(os.path.join(cwd,options.mfile))
+    add_zones_h5(elzones,os.path.join(cwd,options.ofile))
+    create_xdmf(os.path.join(cwd,options.ofile),os.path.join(cwd,options.xfile))
