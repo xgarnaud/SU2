@@ -3187,17 +3187,17 @@ CAvgGrad_Flow2::CAvgGrad_Flow2(unsigned short val_nDim, unsigned short val_nVar,
 
   implicit = (config->GetKind_TimeIntScheme_Flow() == EULER_IMPLICIT);
 
-  PrimVar_i = new double [nDim+3];
-  PrimVar_j = new double [nDim+3];
-  Mean_PrimVar = new double [nDim+3];
+  PrimVar_i = new su2double [nDim+3];
+  PrimVar_j = new su2double [nDim+3];
+  Mean_PrimVar = new su2double [nDim+3];
   
-  Mean_GradPrimVar = new double* [nDim+1];
+  Mean_GradPrimVar = new su2double* [nDim+1];
   for (iVar = 0; iVar < nDim+1; iVar++)
-    Mean_GradPrimVar[iVar] = new double [nDim];
+    Mean_GradPrimVar[iVar] = new su2double [nDim];
 
-  Mean_Tau = new double* [nDim];
+  Mean_Tau = new su2double* [nDim];
   for (iVar = 0; iVar < nDim; iVar++)
-    Mean_Tau[iVar] = new double [nDim];
+    Mean_Tau[iVar] = new su2double [nDim];
   
 }
 
@@ -3215,7 +3215,7 @@ CAvgGrad_Flow2::~CAvgGrad_Flow2(void) {
   
 }
 
-void CAvgGrad_Flow2::ComputeResidual(double *val_residual, double **val_Jacobian_i, double **val_Jacobian_j, CConfig *config) {
+void CAvgGrad_Flow2::ComputeResidual(su2double *val_residual, su2double **val_Jacobian_i, su2double **val_Jacobian_j, CConfig *config) {
 
   /*--- Normalized normal vector ---*/
   
@@ -3630,20 +3630,20 @@ CAvgGradCorrected_Flow2::CAvgGradCorrected_Flow2(unsigned short val_nDim, unsign
 	implicit = (config->GetKind_TimeIntScheme_Flow() == EULER_IMPLICIT);
   limiter = config->GetViscous_Limiter_Flow();
 
-	PrimVar_i = new double [nDim+3];
-	PrimVar_j = new double [nDim+3];
-	Mean_PrimVar = new double [nDim+3];
+	PrimVar_i = new su2double [nDim+3];
+	PrimVar_j = new su2double [nDim+3];
+	Mean_PrimVar = new su2double [nDim+3];
   
-	Proj_Mean_GradPrimVar_Edge = new double [nDim+1];
-	Mean_GradPrimVar = new double* [nDim+1];
+	Proj_Mean_GradPrimVar_Edge = new su2double [nDim+1];
+	Mean_GradPrimVar = new su2double* [nDim+1];
 	for (iVar = 0; iVar < nDim+1; iVar++)
-		Mean_GradPrimVar[iVar] = new double [nDim];
+		Mean_GradPrimVar[iVar] = new su2double [nDim];
 
-	Mean_Tau = new double* [nDim];
+	Mean_Tau = new su2double* [nDim];
 	for (iVar = 0; iVar < nDim; iVar++)
-		Mean_Tau[iVar] = new double [nDim];
+		Mean_Tau[iVar] = new su2double [nDim];
 
-	Edge_Vector = new double [nDim];
+	Edge_Vector = new su2double [nDim];
   
 }
 CAvgGradCorrected_Flow2::~CAvgGradCorrected_Flow2(void) {
@@ -3661,7 +3661,7 @@ CAvgGradCorrected_Flow2::~CAvgGradCorrected_Flow2(void) {
 	delete [] Mean_Tau;
   
 }
-void CAvgGradCorrected_Flow2::ComputeResidual(double *val_residual, double **val_Jacobian_i, double **val_Jacobian_j, CConfig *config) {
+void CAvgGradCorrected_Flow2::ComputeResidual(su2double *val_residual, su2double **val_Jacobian_i, su2double **val_Jacobian_j, CConfig *config) {
 
   /*--- Normalized normal vector ---*/
   

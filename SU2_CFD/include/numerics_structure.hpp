@@ -853,6 +853,25 @@ public:
                           su2double val_turb_ke, su2double *val_normal,
                           su2double val_laminar_viscosity,
                           su2double val_eddy_viscosity);
+
+  /*!
+   * \brief Compute the projection of the viscous fluxes into a direction.
+   * \param[in] val_primvar - Primitive variables.
+   * \param[in] val_gradprimvar - Gradient of the primitive variables.
+   * \param[in] val_tau - Stress tensor
+   * \param[in] val_turb_ke - Turbulent kinetic energy
+   * \param[in] val_normal - Normal vector, the norm of the vector is the area of the face.
+   * \param[in] val_laminar_viscosity - Laminar viscosity.
+   * \param[in] val_eddy_viscosity - Eddy viscosity.
+   * \param[in] val_thermal_conductivity - Thermal Conductivity.
+   * \param[in] val_eddy_conductivity - Eddy Conductivity.
+   */
+
+  void GetViscousProjFlux(double *val_primvar, double **val_gradprimvar, double ** val_tau,
+                          double val_turb_ke, double *val_normal,
+                          double val_laminar_viscosity,
+                          double val_eddy_viscosity);
+
   /*!
    * \brief Compute the projection of the viscous fluxes into a direction for general fluid model.
    * \param[in] val_primvar - Primitive variables.
@@ -3073,7 +3092,7 @@ public:
 class CAvgGrad_Flow2 : public CNumerics {
 private:
 	unsigned short iDim, iVar, jVar;	   /*!< \brief Iterators in dimension an variable. */
-	double *Mean_PrimVar,				   /*!< \brief Mean primitive variables. */
+	su2double *Mean_PrimVar,				   /*!< \brief Mean primitive variables. */
 	*PrimVar_i, *PrimVar_j,				   /*!< \brief Primitives variables at point i and 1. */
 	Total_Viscosity_i,Total_Viscosity_j,
 	  **Mean_GradPrimVar,**Mean_Tau,visc_div_vel,					   /*!< \brief Mean value of the gradient. */
@@ -3108,7 +3127,7 @@ public:
 	 * \param[out] val_Jacobian_j - Jacobian of the numerical method at node j (implicit computation).
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	void ComputeResidual(double *val_residual, double **val_Jacobian_i, double **val_Jacobian_j, CConfig *config);
+	void ComputeResidual(su2double *val_residual, su2double **val_Jacobian_i, su2double **val_Jacobian_j, CConfig *config);
 };
 
 /*!
@@ -3514,7 +3533,7 @@ public:
 class CAvgGradCorrected_Flow2 : public CNumerics {
 private:
 	unsigned short iDim, iVar, jVar;		/*!< \brief Iterators in dimension an variable. */
-	double *Mean_PrimVar,					/*!< \brief Mean primitive variables. */
+	su2double *Mean_PrimVar,					/*!< \brief Mean primitive variables. */
 	*PrimVar_i, *PrimVar_j,				/*!< \brief Primitives variables at point i and 1. */
 	Total_Viscosity_i, Total_Viscosity_j,   
 	*Edge_Vector,									/*!< \brief Vector form point i to point j. */
@@ -3551,7 +3570,7 @@ public:
 	 * \param[out] val_Jacobian_j - Jacobian of the numerical method at node j (implicit computation).
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	void ComputeResidual(double *val_residual, double **val_Jacobian_i, double **val_Jacobian_j, CConfig *config);
+	void ComputeResidual(su2double *val_residual, su2double **val_Jacobian_i, su2double **val_Jacobian_j, CConfig *config);
 };
 
 

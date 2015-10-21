@@ -151,6 +151,8 @@ int main(int argc, char *argv[]) {
     
     geometry_container[iZone][MESH_0]->SetBoundaries(config_container[iZone]);
     
+    // geometry_container[iZone][MESH_0]->SetPeriodicBoundary(config_container[iZone]);
+
   }
   
   if (rank == MASTER_NODE)

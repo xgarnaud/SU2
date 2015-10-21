@@ -1807,7 +1807,6 @@ CBaselineSolver::CBaselineSolver(CGeometry *geometry, CConfig *config, unsigned 
   /*--- Close the restart file ---*/
   
   restart_file.close();
-#endif
 
   /*--- Instantiate the variable class with an arbitrary solution
    at any halo/periodic nodes. The initial solution can be arbitrary,
@@ -1823,6 +1822,7 @@ CBaselineSolver::CBaselineSolver(CGeometry *geometry, CConfig *config, unsigned 
   
   delete [] Global2Local;
   delete [] Solution;
+#endif
   
   /*--- MPI solution ---*/
   

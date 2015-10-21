@@ -675,10 +675,6 @@ CGNS_LD
 CGNS_CXX
 BUILD_CGNS_FALSE
 BUILD_CGNS_TRUE
-HDF5_LD
-HDF5_CXX
-BUILD_HDF5_FALSE
-BUILD_HDF5_TRUE
 su2_externals_LIBS
 su2_externals_INCLUDES
 BUILD_PARMETIS_FALSE
@@ -5228,6 +5224,7 @@ else
 fi
 
 
+
 # Check whether --with-HDF5-lib was given.
 if test "${with_HDF5_lib+set}" = set; then :
   withval=$with_HDF5_lib; with_HDF5_lib=$withval
@@ -5724,162 +5721,6 @@ ac_config_files="$ac_config_files externals/parmetis/Makefile"
 
 ##########################
 
-# check for lib
-HDF5lib=libhdf5.a
-HDF5header=hdf5.h
-HDF5lib_hl=libhdf5_hl.a
-HDF5header_hl=hdf5_hl.h
-
-have_HDF5="no"
-
-if test "$with_HDF5_dir" != "no"
-then
-  	as_ac_File=`$as_echo "ac_cv_file_$with_HDF5_dir/lib/$HDF5lib" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $with_HDF5_dir/lib/$HDF5lib" >&5
-$as_echo_n "checking for $with_HDF5_dir/lib/$HDF5lib... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$with_HDF5_dir/lib/$HDF5lib"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
-  have_HDF5="yes"
-else
-  have_HDF5="no"
-fi
-
-	if test "$have_HDF5" == "no"
-	then
-		as_fn_error $? "HDF5 requested but library file not found." "$LINENO" 5
-	fi
-  	as_ac_File=`$as_echo "ac_cv_file_$with_HDF5_dir/lib/$HDF5lib_hl" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $with_HDF5_dir/lib/$HDF5lib_hl" >&5
-$as_echo_n "checking for $with_HDF5_dir/lib/$HDF5lib_hl... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$with_HDF5_dir/lib/$HDF5lib_hl"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
-  have_HDF5="yes"
-else
-  have_HDF5="no"
-fi
-
-	if test "$have_HDF5" == "no"
-	then
-		as_fn_error $? "HDF5_HL requested but library file not found." "$LINENO" 5
-	fi
-fi
-
-# check for header
-if test "$have_HDF5" != "no"
-then
-	if test "$with_HDF5_dir" != "no"
-	then
-		as_ac_File=`$as_echo "ac_cv_file_$with_HDF5_dir/include/$HDF5header" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $with_HDF5_dir/include/$HDF5header" >&5
-$as_echo_n "checking for $with_HDF5_dir/include/$HDF5header... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$with_HDF5_dir/include/$HDF5header"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
-  have_HDF5='yes'
-else
-  have_HDF5='no'
-fi
-
-		if test "$have_HDF5" == "no"
-		then
-			as_fn_error $? "HDF5 requested but header file not found." "$LINENO" 5
-		fi
-		as_ac_File=`$as_echo "ac_cv_file_$with_HDF5_dir/include/$HDF5header_hl" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $with_HDF5_dir/include/$HDF5header_hl" >&5
-$as_echo_n "checking for $with_HDF5_dir/include/$HDF5header_hl... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$with_HDF5_dir/include/$HDF5header_hl"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
-  have_HDF5='yes'
-else
-  have_HDF5='no'
-fi
-
-		if test "$have_HDF5" == "no"
-		then
-			as_fn_error $? "HDF5_HL requested but header file not found." "$LINENO" 5
-		fi
-	else
-		have_HDF5="no"
-	fi
-fi
-
-if test "$have_HDF5" != "no"
-then
-  	 if true; then
-  BUILD_HDF5_TRUE=
-  BUILD_HDF5_FALSE='#'
-else
-  BUILD_HDF5_TRUE='#'
-  BUILD_HDF5_FALSE=
-fi
-
-	HDF5_CXX="-DHAVE_HDF5 -I"$with_HDF5_dir/include""
-	HDF5_LD=""$with_HDF5_dir/lib"/$HDF5lib_hl "$with_HDF5_dir/lib"/$HDF5lib -ldl -lz -lpthread -lm"
-else
-	 if false; then
-  BUILD_HDF5_TRUE=
-  BUILD_HDF5_FALSE='#'
-else
-  BUILD_HDF5_TRUE='#'
-  BUILD_HDF5_FALSE=
-fi
-
-	HDF5_CXX=
-	HDF5_LD=
-fi
-
-
 
 ##########################
 
@@ -5994,6 +5835,7 @@ fi
 
 # check for lib
 HDF5lib=libhdf5.a
+HDF5lib_hl=libhdf5_hl.a
 HDF5header=hdf5.h
 have_HDF5="no"
 
@@ -6076,7 +5918,8 @@ else
 fi
 
 HDF5_CXX="-DHAVE_HDF5 -I"$with_HDF5_include""
-HDF5_LD="$with_HDF5_lib"/$HDF5lib
+HDF5_LD="$with_HDF5_lib"/$HDF5lib_hl
+HDF5_LD+=" $with_HDF5_lib"/$HDF5lib
 else
  if false; then
   BUILD_HDF5_TRUE=
@@ -7030,14 +6873,6 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${BUILD_PARMETIS_TRUE}" && test -z "${BUILD_PARMETIS_FALSE}"; then
   as_fn_error $? "conditional \"BUILD_PARMETIS\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
-if test -z "${BUILD_HDF5_TRUE}" && test -z "${BUILD_HDF5_FALSE}"; then
-  as_fn_error $? "conditional \"BUILD_HDF5\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
-if test -z "${BUILD_HDF5_TRUE}" && test -z "${BUILD_HDF5_FALSE}"; then
-  as_fn_error $? "conditional \"BUILD_HDF5\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${BUILD_CGNS_TRUE}" && test -z "${BUILD_CGNS_FALSE}"; then
@@ -8413,12 +8248,6 @@ Build Configuration Summary:
     Preprocessor flags:   ${CPPFLAGS}
     Compiler flags:       ${CXXFLAGS}
     Linker flags:         ${LDFLAGS}
-    HDF5 support:         $have_HDF5
-    HDF5 includes:        $HDF5_CXX
-    HDF5 libs:            $HDF5_LD
-    CGNS support:         $have_CGNS
-    CGNS includes:        $CGNS_CXX
-    CGNS libs:            $CGNS_LD
     MPI support:          $have_MPI
     Metis support:        $enablemetis
     Parmetis support:     $enableparmetis
