@@ -10130,7 +10130,149 @@ void CEulerSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig 
   long iPoint_Local = 0; unsigned long iPoint_Global = 0;
 
   /*--- The first line is the header ---*/
+  if (config->GetHDF5_IO()) {
+#ifdef HAVE_HDF5
+
+  /*--- open the restart file ---*/
+  hid_t file_id = H5Fopen(restart_filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+
+  hid_t ele_id = H5Gopen (file_id, "PointData",H5P_DEFAULT );
+
+  hid_t dset_id,space_id,mid1;
+  herr_t ret;
+
   
+  /*--- get the global indices of the local points ---*/
+
+  int npoints = geometry[MESH_0]->GetnPointDomain();
+  hsize_t *local_idx;
+  local_idx = new hsize_t[npoints];
+  for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++)
+    local_idx[iPoint] = geometry[MESH_0]->node[iPoint]->GetGlobalIndex();
+
+  hsize_t dims[] = { geometry[MESH_0]->GetnPointDomain()};
+
+
+  if (grid_movement) {
+    double *x,*y,*z,*v0,*v1,*v2;
+    double GridVel[3] = {0.0,0.0,0.0};
+
+    x = new double[npoints];
+    y = new double[npoints];
+    if (nDim == 3)
+      z = new double[npoints];
+
+    v0 = new double[npoints];
+    v1 = new double[npoints];
+    if (nDim == 3)
+      v2 = new double[npoints];
+
+    dset_id = H5Dopen (ele_id, "x",H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, x); 
+
+    dset_id = H5Dopen (ele_id, "y",H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, y); 
+
+    if (nDim == 3){
+      dset_id = H5Dopen (ele_id, "z",H5P_DEFAULT);
+      space_id = H5Dget_space (dset_id);
+      mid1 = H5Screate_simple(1, dims, NULL);
+      ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+      ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, z); 
+    }
+
+    
+    dset_id = H5Dopen (ele_id, "Grid_Velx",H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, x); 
+
+    dset_id = H5Dopen (ele_id, "Grid_Vely",H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, y); 
+
+    if (nDim == 3){
+      dset_id = H5Dopen (ele_id, "Grid_Velz",H5P_DEFAULT);
+      space_id = H5Dget_space (dset_id);
+      mid1 = H5Screate_simple(1, dims, NULL);
+      ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+      ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, z); 
+    }
+
+    for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++){
+      Coord[0] = x[iPoint];
+      Coord[1] = y[iPoint];
+      if (nDim == 3)
+	Coord[2] = z[iPoint];
+      else
+	Coord[2] = 0.0;
+
+      GridVel[0] = v0[iPoint];
+      GridVel[1] = v1[iPoint];
+      if (nDim == 3)
+	GridVel[2] = v2[iPoint];
+      else
+	GridVel[2] = 0.0;
+
+      for (iDim = 0; iDim < nDim; iDim++) {
+	geometry[MESH_0]->node[iPoint]->SetCoord(iDim, Coord[iDim]);
+	geometry[MESH_0]->node[iPoint]->SetGridVel(iDim, GridVel[iDim]);
+      }
+    }
+    delete[] x;
+    delete[] y;
+    if (nDim == 3)
+      delete[] z;
+    
+    delete[] v0;
+    delete[] v1;
+    if (nDim == 3)
+      delete[] v2;
+    
+  }
+  double ** cons;
+  cons = new double* [nVar];
+  for (iVar = 0; iVar < nVar; iVar++)
+    cons[iVar] = new double [npoints];
+
+  ostringstream sstm;  
+  for (iVar = 0; iVar < nVar; iVar++){
+    sstm.clear(); sstm.str("");
+    sstm << "Conservative_" << iVar+1 ;
+
+    dset_id = H5Dopen (ele_id, sstm.str().c_str(),H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, cons[iVar]); 
+  }
+
+  for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++){
+    for (iVar = 0; iVar < nVar; iVar++)
+      Solution[iVar] = cons[iVar][iPoint];
+    
+    node[iPoint]->SetSolution(Solution);
+  }
+
+  for (iVar = 0; iVar < nVar; iVar++)
+    delete [] cons[iVar];
+  delete [] cons;
+  delete [] local_idx;
+
+  H5Gclose(ele_id);
+  H5Fclose(file_id);
+#endif
+    } else {
+      // ASCII IO
   getline (restart_file, text_line);
 
   while (getline (restart_file, text_line)) {
@@ -10189,7 +10331,7 @@ void CEulerSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig 
     }
     iPoint_Global++;
   }
-
+    }
   /*--- Close the restart file ---*/
   
   restart_file.close();
@@ -10945,69 +11087,130 @@ CNSSolver::CNSSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
       exit(EXIT_FAILURE);
     }
     
-    /*--- In case this is a parallel simulation, we need to perform the
-     Global2Local index transformation first. ---*/
-    
-    long *Global2Local = new long[geometry->GetGlobal_nPointDomain()];
-    
-    /*--- First, set all indices to a negative value by default ---*/
-    
-    for (iPoint = 0; iPoint < geometry->GetGlobal_nPointDomain(); iPoint++)
-      Global2Local[iPoint] = -1;
-    
-    /*--- Now fill array with the transform values only for local points ---*/
-    
-    for (iPoint = 0; iPoint < nPointDomain; iPoint++)
-      Global2Local[geometry->node[iPoint]->GetGlobalIndex()] = iPoint;
-    
-    /*--- Read all lines in the restart file ---*/
-    
-    long iPoint_Local;
-    unsigned long iPoint_Global_Local = 0, iPoint_Global = 0; string text_line;
     unsigned short rbuf_NotMatching = 0, sbuf_NotMatching = 0;
 
-    /*--- The first line is the header ---*/
-    
-    getline (restart_file, text_line);
-    
-    while (getline (restart_file, text_line)) {
-      istringstream point_line(text_line);
-      
-      /*--- Retrieve local index. If this node from the restart file lives
-       on a different processor, the value of iPoint_Local will be -1.
-       Otherwise, the local index for this node on the current processor
-       will be returned and used to instantiate the vars. ---*/
-      
-      if (iPoint_Global >= geometry->GetGlobal_nPointDomain()) { sbuf_NotMatching = 1; break; }
+    if (config->GetHDF5_IO()) {
+#ifdef HAVE_HDF5
+      /*--- open the restart file ---*/
+      hid_t file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
 
-      iPoint_Local = Global2Local[iPoint_Global];
-      
-      /*--- Load the solution for this node. Note that the first entry
-       on the restart file line is the global index, followed by the
-       node coordinates, and then the conservative variables. ---*/
-      
-      if (iPoint_Local >= 0) {
-        if (compressible) {
-          if (nDim == 2) point_line >> index >> dull_val >> dull_val >> Solution[0] >> Solution[1] >> Solution[2] >> Solution[3];
-          if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> Solution[0] >> Solution[1] >> Solution[2] >> Solution[3] >> Solution[4];
-        }
-        if (incompressible) {
-          if (nDim == 2) point_line >> index >> dull_val >> dull_val >> Solution[0] >> Solution[1] >> Solution[2];
-          if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> Solution[0] >> Solution[1] >> Solution[2] >> Solution[3];
-        }
-        if (freesurface) {
-          if (nDim == 2) point_line >> index >> dull_val >> dull_val >> Solution[0] >> Solution[1] >> Solution[2] >> Solution[3];
-          if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> Solution[0] >> Solution[1] >> Solution[2] >> Solution[3] >> Solution[4];
-        }
-        node[iPoint_Local] = new CNSVariable(Solution, nDim, nVar, config);
-        iPoint_Global_Local++;
+      hid_t ele_id = H5Gopen (file_id, "PointData",H5P_DEFAULT );
+
+      hid_t dset_id,space_id,mid1;
+      herr_t ret;
+
+  
+      /*--- get the global indices of the local points ---*/
+
+      int npoints = geometry->GetnPointDomain();
+      hsize_t *local_idx;
+      local_idx = new hsize_t[npoints];
+      for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++)
+	local_idx[iPoint] = geometry->node[iPoint]->GetGlobalIndex();
+
+      hsize_t dims[] = { geometry->GetnPointDomain()};
+
+      double ** cons;
+      cons = new double* [nVar];
+      for (iVar = 0; iVar < nVar; iVar++)
+	cons[iVar] = new double [npoints];
+
+      ostringstream sstm;  
+      for (iVar = 0; iVar < nVar; iVar++){
+	sstm.clear(); sstm.str("");
+	sstm << "Conservative_" << iVar+1 ;
+
+	dset_id = H5Dopen (ele_id, sstm.str().c_str(),H5P_DEFAULT);
+	space_id = H5Dget_space (dset_id);
+	mid1 = H5Screate_simple(1, dims, NULL);
+	ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+	ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, cons[iVar]); 
       }
-      iPoint_Global++;
-    }
-    
-    /*--- Detect a wrong solution file ---*/
 
-    if (iPoint_Global_Local < nPointDomain) { sbuf_NotMatching = 1; }
+      for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++){
+	for (iVar = 0; iVar < nVar; iVar++)
+	  Solution[iVar] = cons[iVar][iPoint];
+    
+	node[iPoint] = new CNSVariable(Solution, nDim, nVar, config);
+      }
+
+      for (iVar = 0; iVar < nVar; iVar++)
+	delete [] cons[iVar];
+      delete [] cons;
+      delete [] local_idx;
+
+      H5Gclose(ele_id);
+      H5Fclose(file_id);
+
+#endif
+    } else {
+      /*--- In case this is a parallel simulation, we need to perform the
+	Global2Local index transformation first. ---*/
+    
+      long *Global2Local = new long[geometry->GetGlobal_nPointDomain()];
+    
+      /*--- First, set all indices to a negative value by default ---*/
+    
+      for (iPoint = 0; iPoint < geometry->GetGlobal_nPointDomain(); iPoint++)
+	Global2Local[iPoint] = -1;
+    
+      /*--- Now fill array with the transform values only for local points ---*/
+    
+      for (iPoint = 0; iPoint < nPointDomain; iPoint++)
+	Global2Local[geometry->node[iPoint]->GetGlobalIndex()] = iPoint;
+    
+      /*--- Read all lines in the restart file ---*/
+    
+      long iPoint_Local;
+      unsigned long iPoint_Global_Local = 0, iPoint_Global = 0; string text_line;
+
+      /*--- The first line is the header ---*/
+    
+      getline (restart_file, text_line);
+    
+      while (getline (restart_file, text_line)) {
+	istringstream point_line(text_line);
+      
+	/*--- Retrieve local index. If this node from the restart file lives
+	  on a different processor, the value of iPoint_Local will be -1.
+	  Otherwise, the local index for this node on the current processor
+	  will be returned and used to instantiate the vars. ---*/
+      
+	if (iPoint_Global >= geometry->GetGlobal_nPointDomain()) { sbuf_NotMatching = 1; break; }
+
+	iPoint_Local = Global2Local[iPoint_Global];
+      
+	/*--- Load the solution for this node. Note that the first entry
+	  on the restart file line is the global index, followed by the
+	  node coordinates, and then the conservative variables. ---*/
+      
+	if (iPoint_Local >= 0) {
+	  if (compressible) {
+	    if (nDim == 2) point_line >> index >> dull_val >> dull_val >> Solution[0] >> Solution[1] >> Solution[2] >> Solution[3];
+	    if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> Solution[0] >> Solution[1] >> Solution[2] >> Solution[3] >> Solution[4];
+	  }
+	  if (incompressible) {
+	    if (nDim == 2) point_line >> index >> dull_val >> dull_val >> Solution[0] >> Solution[1] >> Solution[2];
+	    if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> Solution[0] >> Solution[1] >> Solution[2] >> Solution[3];
+	  }
+	  if (freesurface) {
+	    if (nDim == 2) point_line >> index >> dull_val >> dull_val >> Solution[0] >> Solution[1] >> Solution[2] >> Solution[3];
+	    if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> Solution[0] >> Solution[1] >> Solution[2] >> Solution[3] >> Solution[4];
+	  }
+	  node[iPoint_Local] = new CNSVariable(Solution, nDim, nVar, config);
+	  iPoint_Global_Local++;
+	}
+	iPoint_Global++;
+      }
+    
+      /*--- Detect a wrong solution file ---*/
+
+      if (iPoint_Global_Local < nPointDomain) { sbuf_NotMatching = 1; }
+      /*--- Free memory needed for the transformation ---*/
+    
+      delete [] Global2Local;
+
+    }
     
 #ifndef HAVE_MPI
     rbuf_NotMatching = sbuf_NotMatching;
@@ -11040,9 +11243,6 @@ CNSSolver::CNSSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
     
     restart_file.close();
     
-    /*--- Free memory needed for the transformation ---*/
-    
-    delete [] Global2Local;
     
   }
   

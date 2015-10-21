@@ -33,6 +33,10 @@
 #pragma once
 
 #include "../../Common/include/mpi_structure.hpp"
+#ifdef HAVE_HDF5
+  #include "hdf5.h"
+  #include "hdf5_hl.h"
+#endif
 
 #include <cmath>
 #include <string>

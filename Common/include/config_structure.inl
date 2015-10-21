@@ -813,6 +813,12 @@ inline unsigned short CConfig::GetUnsteady_Simulation(void) { return Unsteady_Si
 
 inline bool CConfig::GetRestart(void) {	return Restart; }
 
+#ifdef HAVE_HDF5
+inline bool CConfig::GetHDF5_IO(void) {	return HDF5_IO; }
+#else
+inline bool CConfig::GetHDF5_IO(void) {	return false; }
+#endif
+
 inline bool CConfig::GetRestart_Flow(void) { return Restart_Flow; }
 
 inline bool CConfig::GetEquivArea(void) { return EquivArea; }

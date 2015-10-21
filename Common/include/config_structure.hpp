@@ -468,7 +468,8 @@ private:
   bool Wrt_Dynamic;  		/*!< \brief Write dynamic data adding header and prefix. */
 	bool LowFidelitySim;  /*!< \brief Compute a low fidelity simulation. */
 	bool Restart,	/*!< \brief Restart solution (for direct, adjoint, and linearized problems).*/
-	Restart_Flow;	/*!< \brief Restart flow solution for adjoint and linearized problems. */
+	  Restart_Flow,	/*!< \brief Restart flow solution for adjoint and linearized problems. */
+	  HDF5_IO; /*!< \brief use HDF5_IO. */
 	unsigned short nMarker_Monitoring,	/*!< \brief Number of markers to monitor. */
 	nMarker_Designing,					/*!< \brief Number of markers for the objective function. */
 	nMarker_GeoEval,					/*!< \brief Number of markers for the objective function. */
@@ -3746,6 +3747,14 @@ public:
 	 * \return Restart information, if <code>TRUE</code> then the code will use the solution as restart.
 	 */
 	bool GetRestart(void);
+
+	/*!
+	 * \brief Provides the restart information.
+	 * \return Restart information, if <code>TRUE</code> then the code will use the solution as restart.
+	 */
+	bool GetHDF5_IO(void);
+
+  
 
 	/*!
 	 * \brief Provides the number of varaibles.

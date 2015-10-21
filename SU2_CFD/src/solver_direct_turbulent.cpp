@@ -1155,101 +1155,208 @@ CTurbSASolver::CTurbSASolver(CGeometry *geometry, CConfig *config, unsigned shor
       cout << "There is no turbulent restart file!!" << endl;
       exit(EXIT_FAILURE);
     }
+
+    if (config->GetHDF5_IO()) {
+#ifdef HAVE_HDF5
+
+      /*--- open the restart file ---*/
+      hid_t file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
     
-    /*--- In case this is a parallel simulation, we need to perform the
-     Global2Local index transformation first. ---*/
-    long *Global2Local;
-    Global2Local = new long[geometry->GetGlobal_nPointDomain()];
-    /*--- First, set all indices to a negative value by default ---*/
-    for (iPoint = 0; iPoint < geometry->GetGlobal_nPointDomain(); iPoint++) {
+      hid_t ele_id = H5Gopen (file_id, "PointData",H5P_DEFAULT );
+    
+      hid_t dset_id,space_id,mid1;
+      herr_t ret;
+    
+    
+      /*--- get the global indices of the local points ---*/
+    
+      int npoints = geometry->GetnPointDomain();
+      hsize_t *local_idx;
+      local_idx = new hsize_t[npoints];
+      for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++)
+	local_idx[iPoint] = geometry->node[iPoint]->GetGlobalIndex();
+    
+      hsize_t dims[] = { geometry->GetnPointDomain()};
+
+      /*--- load the NS variables ---*/
+      int nCons = 0;
+      if (compressible)
+	nCons = 2+nDim;
+      if (incompressible)
+	nCons = 1+nDim;
+      if (freesurface)
+	nCons = 2+nDim;
+    
+      double ** cons;
+      cons = new double* [nCons];
+      for (iVar = 0; iVar < nCons; iVar++)
+	cons[iVar] = new double [npoints];
+
+      ostringstream sstm;  
+      for (iVar = 0; iVar < nCons; iVar++){
+	sstm.clear(); sstm.str("");
+	sstm << "Conservative_" << iVar+1 ;
+      
+	dset_id = H5Dopen (ele_id, sstm.str().c_str(),H5P_DEFAULT);
+	space_id = H5Dget_space (dset_id);
+	mid1 = H5Screate_simple(1, dims, NULL);
+	ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+	ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, cons[iVar]); 
+      }
+
+      /*--- load the Spalart variables ---*/
+      double *nuhat;
+      nuhat = new double[npoints];
+
+      sstm.clear(); sstm.str("");
+      sstm << "Conservative_" << nCons+1 ;
+    
+      dset_id = H5Dopen (ele_id, sstm.str().c_str(),H5P_DEFAULT);
+      space_id = H5Dget_space (dset_id);
+      mid1 = H5Screate_simple(1, dims, NULL);
+      ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+      ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, nuhat);
+
+      double U2;
+      for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++){
+
+	Solution[0] = nuhat[iPoint];
+
+	if (compressible){
+	  Density = cons[0][iPoint];
+	  U2 = (cons[1][iPoint]*cons[1][iPoint]+cons[2][iPoint]*cons[2][iPoint]);
+	  if (nDim == 3)
+	    U2 += cons[3][iPoint]*cons[3][iPoint];
+	  U2 /= Density*Density;
+	
+	  StaticEnergy = cons[nCons-1][iPoint]/Density - U2;
+	  FluidModel->SetTDState_rhoe(Density, StaticEnergy);
+	  Laminar_Viscosity = FluidModel->GetLaminarViscosity();
+	  nu     = Laminar_Viscosity/Density;
+	  nu_hat = Solution[0];
+	  Ji     = nu_hat/nu;
+	  Ji_3   = Ji*Ji*Ji;
+	  fv1    = Ji_3/(Ji_3+cv1_3);
+	  muT    = Density*fv1*nu_hat;
+	} else {
+	  muT = muT_Inf;
+	}
+	node[iPoint] = new CTurbSAVariable(Solution[0], muT, nDim, nVar, config);
+      }
+    
+      /*--- Instantiate the variable class with an arbitrary solution
+	at any halo/periodic nodes. The initial solution can be arbitrary,
+	because a send/recv is performed immediately in the solver. ---*/
+      for (iPoint = nPointDomain; iPoint < nPoint; iPoint++) 
+	node[iPoint] = new CTurbSAVariable(Solution[0], muT_Inf, nDim, nVar, config);
+    
+    
+      for (iVar = 0; iVar < nCons; iVar++)
+	delete [] cons[iVar];
+      delete [] cons;
+      delete [] nuhat;
+      delete [] local_idx;
+    
+      H5Gclose(ele_id);
+      H5Fclose(file_id);
+
+#endif
+    } else {
+      /*--- In case this is a parallel simulation, we need to perform the
+	Global2Local index transformation first. ---*/
+      long *Global2Local;
+      Global2Local = new long[geometry->GetGlobal_nPointDomain()];
+      /*--- First, set all indices to a negative value by default ---*/
+      for (iPoint = 0; iPoint < geometry->GetGlobal_nPointDomain(); iPoint++) {
       Global2Local[iPoint] = -1;
     }
-    /*--- Now fill array with the transform values only for local points ---*/
-    for (iPoint = 0; iPoint < nPointDomain; iPoint++) {
+      /*--- Now fill array with the transform values only for local points ---*/
+      for (iPoint = 0; iPoint < nPointDomain; iPoint++) {
       Global2Local[geometry->node[iPoint]->GetGlobalIndex()] = iPoint;
     }
     
-    /*--- Read all lines in the restart file ---*/
-    long iPoint_Local; unsigned long iPoint_Global = 0; string text_line;
+      /*--- Read all lines in the restart file ---*/
+      long iPoint_Local; unsigned long iPoint_Global = 0; string text_line;
     
-    /*--- The first line is the header ---*/
-    getline (restart_file, text_line);
+      /*--- The first line is the header ---*/
+      getline (restart_file, text_line);
     
-    while (getline (restart_file, text_line)) {
+      while (getline (restart_file, text_line)) {
       istringstream point_line(text_line);
       
       /*--- Retrieve local index. If this node from the restart file lives
-       on a different processor, the value of iPoint_Local will be -1.
-       Otherwise, the local index for this node on the current processor
-       will be returned and used to instantiate the vars. ---*/
+	on a different processor, the value of iPoint_Local will be -1.
+	Otherwise, the local index for this node on the current processor
+	will be returned and used to instantiate the vars. ---*/
       iPoint_Local = Global2Local[iPoint_Global];
       if (iPoint_Local >= 0) {
-        if (compressible) {
-          if (nDim == 2) point_line >> index >> dull_val >> dull_val >> U[0] >> U[1] >> U[2] >> U[3] >> Solution[0];
-          if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> U[0] >> U[1] >> U[2] >> U[3] >> U[4] >> Solution[0];
+      if (compressible) {
+      if (nDim == 2) point_line >> index >> dull_val >> dull_val >> U[0] >> U[1] >> U[2] >> U[3] >> Solution[0];
+      if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> U[0] >> U[1] >> U[2] >> U[3] >> U[4] >> Solution[0];
           
-          Density = U[0];
-          if (nDim == 2)
-        	  StaticEnergy = U[3]/U[0] - (U[1]*U[1] + U[2]*U[2])/(2.0*U[0]*U[0]);
-//            Pressure = Gamma_Minus_One*(U[3] - (U[1]*U[1] + U[2]*U[2])/(2.0*U[0]));
-          else
-        	  StaticEnergy = U[4]/U[0] - (U[1]*U[1] + U[2]*U[2] + U[3]*U[3] )/(2.0*U[0]*U[0]);
-//        	  Pressure = Gamma_Minus_One*(U[4] - (U[1]*U[1] + U[2]*U[2] + U[3]*U[3])/(2.0*U[0]));
+      Density = U[0];
+      if (nDim == 2)
+	StaticEnergy = U[3]/U[0] - (U[1]*U[1] + U[2]*U[2])/(2.0*U[0]*U[0]);
+      //            Pressure = Gamma_Minus_One*(U[3] - (U[1]*U[1] + U[2]*U[2])/(2.0*U[0]));
+      else
+	StaticEnergy = U[4]/U[0] - (U[1]*U[1] + U[2]*U[2] + U[3]*U[3] )/(2.0*U[0]*U[0]);
+      //        	  Pressure = Gamma_Minus_One*(U[4] - (U[1]*U[1] + U[2]*U[2] + U[3]*U[3])/(2.0*U[0]));
 
-//          Temperature = Pressure/(Gas_Constant*Density);
-//
-//
-//          Temperature_Dim = Temperature*Temperature_Ref;
-//
-//          if (config->GetSystemMeasurements() == SI) { T_ref = 273.15; S = 110.4; Mu_ref = 1.716E-5; }
-//          if (config->GetSystemMeasurements() == US) { T_ref = 518.7; S = 198.72; Mu_ref = 3.62E-7; }
-//
-//          /*--- Calculate viscosity from a non-dim. Sutherland's Law ---*/
-//
-//          Laminar_Viscosity = Mu_ref*(pow(Temperature_Dim/T_ref, 1.5) * (T_ref+S)/(Temperature_Dim+S));
-//          Laminar_Viscosity = Laminar_Viscosity/Viscosity_Ref;
+      //          Temperature = Pressure/(Gas_Constant*Density);
+      //
+      //
+      //          Temperature_Dim = Temperature*Temperature_Ref;
+      //
+      //          if (config->GetSystemMeasurements() == SI) { T_ref = 273.15; S = 110.4; Mu_ref = 1.716E-5; }
+      //          if (config->GetSystemMeasurements() == US) { T_ref = 518.7; S = 198.72; Mu_ref = 3.62E-7; }
+      //
+      //          /*--- Calculate viscosity from a non-dim. Sutherland's Law ---*/
+      //
+      //          Laminar_Viscosity = Mu_ref*(pow(Temperature_Dim/T_ref, 1.5) * (T_ref+S)/(Temperature_Dim+S));
+      //          Laminar_Viscosity = Laminar_Viscosity/Viscosity_Ref;
 
-          FluidModel->SetTDState_rhoe(Density, StaticEnergy);
-          Laminar_Viscosity = FluidModel->GetLaminarViscosity();
-          nu     = Laminar_Viscosity/Density;
-          nu_hat = Solution[0];
-          Ji     = nu_hat/nu;
-          Ji_3   = Ji*Ji*Ji;
-          fv1    = Ji_3/(Ji_3+cv1_3);
-          muT    = Density*fv1*nu_hat;
+      FluidModel->SetTDState_rhoe(Density, StaticEnergy);
+      Laminar_Viscosity = FluidModel->GetLaminarViscosity();
+      nu     = Laminar_Viscosity/Density;
+      nu_hat = Solution[0];
+      Ji     = nu_hat/nu;
+      Ji_3   = Ji*Ji*Ji;
+      fv1    = Ji_3/(Ji_3+cv1_3);
+      muT    = Density*fv1*nu_hat;
           
-        }
-        if (incompressible) {
-          if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
-          if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
-          muT = muT_Inf;
-        }
+    }
+      if (incompressible) {
+      if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
+      if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
+      muT = muT_Inf;
+    }
         
-        if (freesurface) {
-          if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
-          if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
-          muT = muT_Inf;
-        }
+      if (freesurface) {
+      if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
+      if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
+      muT = muT_Inf;
+    }
         
-        /*--- Instantiate the solution at this node, note that the eddy viscosity should be recomputed ---*/
-        node[iPoint_Local] = new CTurbSAVariable(Solution[0], muT, nDim, nVar, config);
-      }
+      /*--- Instantiate the solution at this node, note that the eddy viscosity should be recomputed ---*/
+      node[iPoint_Local] = new CTurbSAVariable(Solution[0], muT, nDim, nVar, config);
+    }
       iPoint_Global++;
     }
     
-    /*--- Instantiate the variable class with an arbitrary solution
-     at any halo/periodic nodes. The initial solution can be arbitrary,
-     because a send/recv is performed immediately in the solver. ---*/
-    for (iPoint = nPointDomain; iPoint < nPoint; iPoint++) {
+      /*--- Instantiate the variable class with an arbitrary solution
+	at any halo/periodic nodes. The initial solution can be arbitrary,
+	because a send/recv is performed immediately in the solver. ---*/
+      for (iPoint = nPointDomain; iPoint < nPoint; iPoint++) {
       node[iPoint] = new CTurbSAVariable(Solution[0], muT_Inf, nDim, nVar, config);
     }
     
-    /*--- Close the restart file ---*/
-    restart_file.close();
+      /*--- Close the restart file ---*/
+      restart_file.close();
     
-    /*--- Free memory needed for the transformation ---*/
-    delete [] Global2Local;
-  }
+      /*--- Free memory needed for the transformation ---*/
+      delete [] Global2Local;
+    }
+    }
   
   /*--- MPI solution ---*/
   Set_MPI_Solution(geometry, config);
@@ -2368,63 +2475,123 @@ void CTurbSASolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig
       cout << "There is no flow restart file!! " << restart_filename.data() << "."<< endl;
     exit(EXIT_FAILURE);
   }
-  
-  /*--- In case this is a parallel simulation, we need to perform the
-   Global2Local index transformation first. ---*/
-  long *Global2Local = NULL;
-  Global2Local = new long[geometry[MESH_0]->GetGlobal_nPointDomain()];
-  /*--- First, set all indices to a negative value by default ---*/
-  for (iPoint = 0; iPoint < geometry[MESH_0]->GetGlobal_nPointDomain(); iPoint++) {
-    Global2Local[iPoint] = -1;
-  }
-  
-  /*--- Now fill array with the transform values only for local points ---*/
-  for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++) {
-    Global2Local[geometry[MESH_0]->node[iPoint]->GetGlobalIndex()] = iPoint;
-  }
-  
-  /*--- Read all lines in the restart file ---*/
-  long iPoint_Local = 0; unsigned long iPoint_Global = 0;
-  
-  /*--- The first line is the header ---*/
-  getline (restart_file, text_line);
-  
-  while (getline (restart_file, text_line)) {
-    istringstream point_line(text_line);
+
+  if (config->GetHDF5_IO()) {
+#ifdef HAVE_HDF5
+
+    /*--- open the restart file ---*/
+    hid_t file_id = H5Fopen(restart_filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
     
-    /*--- Retrieve local index. If this node from the restart file lives
-     on a different processor, the value of iPoint_Local will be -1, as
-     initialized above. Otherwise, the local index for this node on the
-     current processor will be returned and used to instantiate the vars. ---*/
-    iPoint_Local = Global2Local[iPoint_Global];
-    if (iPoint_Local >= 0) {
-      
-      if (compressible) {
-        if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
-        if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
-      }
-      if (incompressible) {
-        if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
-        if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
-      }
-      if (freesurface) {
-        if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
-        if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
-      }
-      
-      
-      node[iPoint_Local]->SetSolution(Solution);
-      
-    }
-    iPoint_Global++;
+    hid_t ele_id = H5Gopen (file_id, "PointData",H5P_DEFAULT );
+    
+    hid_t dset_id,space_id,mid1;
+    herr_t ret;
+    
+    
+    /*--- get the global indices of the local points ---*/
+    
+    int npoints = geometry[MESH_0]->GetnPointDomain();
+    hsize_t *local_idx;
+    local_idx = new hsize_t[npoints];
+    for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++)
+      local_idx[iPoint] = geometry[MESH_0]->node[iPoint]->GetGlobalIndex();
+    
+    hsize_t dims[] = { geometry[MESH_0]->GetnPointDomain()};
+
+    /*--- load the Spalart variables ---*/
+    int nCons = 0;
+    if (compressible)
+      nCons = 2+nDim;
+    if (incompressible)
+      nCons = 1+nDim;
+    if (freesurface)
+      nCons = 2+nDim;
+
+    ostringstream sstm;  
+
+    double *nuhat;
+    nuhat = new double[npoints];
+
+    sstm.clear(); sstm.str("");
+    sstm << "Conservative_" << nCons+1 ;
+    
+    dset_id = H5Dopen (ele_id, sstm.str().c_str(),H5P_DEFAULT);
+    space_id = H5Dget_space (dset_id);
+    mid1 = H5Screate_simple(1, dims, NULL);
+    ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+    ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, nuhat);
+
+    double U2;
+    for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++){
+    Solution[0] = nuhat[iPoint];
+    node[iPoint]->SetSolution(Solution);
   }
+
+    delete [] nuhat;
+    delete [] local_idx;
+    
+    H5Gclose(ele_id);
+    H5Fclose(file_id);
+
+#endif
+  } else {
+
+    /*--- In case this is a parallel simulation, we need to perform the
+      Global2Local index transformation first. ---*/
+    long *Global2Local = NULL;
+    Global2Local = new long[geometry[MESH_0]->GetGlobal_nPointDomain()];
+    /*--- First, set all indices to a negative value by default ---*/
+    for (iPoint = 0; iPoint < geometry[MESH_0]->GetGlobal_nPointDomain(); iPoint++) {
+      Global2Local[iPoint] = -1;
+    }
   
-  /*--- Close the restart file ---*/
-  restart_file.close();
+    /*--- Now fill array with the transform values only for local points ---*/
+    for (iPoint = 0; iPoint < geometry[MESH_0]->GetnPointDomain(); iPoint++) {
+      Global2Local[geometry[MESH_0]->node[iPoint]->GetGlobalIndex()] = iPoint;
+    }
   
-  /*--- Free memory needed for the transformation ---*/
-  delete [] Global2Local;
+    /*--- Read all lines in the restart file ---*/
+    long iPoint_Local = 0; unsigned long iPoint_Global = 0;
   
+    /*--- The first line is the header ---*/
+    getline (restart_file, text_line);
+  
+    while (getline (restart_file, text_line)) {
+      istringstream point_line(text_line);
+    
+      /*--- Retrieve local index. If this node from the restart file lives
+	on a different processor, the value of iPoint_Local will be -1, as
+	initialized above. Otherwise, the local index for this node on the
+	current processor will be returned and used to instantiate the vars. ---*/
+      iPoint_Local = Global2Local[iPoint_Global];
+      if (iPoint_Local >= 0) {
+      
+	if (compressible) {
+	  if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
+	  if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
+	}
+	if (incompressible) {
+	  if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
+	  if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
+	}
+	if (freesurface) {
+	  if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
+	  if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
+	}
+      
+      
+	node[iPoint_Local]->SetSolution(Solution);
+      
+      }
+      iPoint_Global++;
+    }
+  
+    /*--- Close the restart file ---*/
+    restart_file.close();
+  
+    /*--- Free memory needed for the transformation ---*/
+    delete [] Global2Local;
+  }
   /*--- MPI solution and compute the eddy viscosity ---*/
   solver[MESH_0][TURB_SOL]->Set_MPI_Solution(geometry[MESH_0], config);
   solver[MESH_0][TURB_SOL]->Postprocessing(geometry[MESH_0], solver[MESH_0], config, MESH_0);

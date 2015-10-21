@@ -1672,65 +1672,160 @@ CBaselineSolver::CBaselineSolver(CGeometry *geometry, CConfig *config, unsigned 
   
   
   /*--- Identify the number of fields (and names) in the restart file ---*/
+  if (config->GetHDF5_IO()) {
+#ifdef HAVE_HDF5
+
+    /*--- open the restart file ---*/
+    hid_t file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+
+    hid_t ele_id = H5Gopen (file_id, "PointData",H5P_DEFAULT );
+
+    hid_t dset_id,space_id,mid1;
+    herr_t ret;
+
+    /*--- get the variable names & their id ---*/
+    hsize_t nfields;
+    ret = H5Gget_num_objs (ele_id , &nfields );
+
+    vector<int> fields_id;
+    vector<string> variable_names;
+    ostringstream sstm;
+
+    nVar = nfields;
+    const size_t namel = 256;
+    char name[namel];
+
+    for (hsize_t idx = 0; idx < nfields; idx++)
+      {
+	ssize_t len = H5Gget_objname_by_idx(ele_id, idx, name, namel);
+	sstm.clear(); sstm.str("");
+	for (int i=0; i < len; i++)
+	  sstm << name[i];
+
+	string varname = sstm.str();
+	int id;
+
+	dset_id = H5Dopen (ele_id, varname.c_str(),H5P_DEFAULT);
+	H5LTget_attribute_int(ele_id,varname.c_str(), "id", &id);
+
+	variable_names.push_back(varname);
+	fields_id.push_back(id);
+      }
+
   
-  getline (restart_file, text_line);
-  stringstream ss(text_line);
-  while (ss >> Tag) {
+    nVar = variable_names.size();
+    config->fields.resize(nVar+1);
+    config->fields[0] = "idx";
+    for (iVar = 0; iVar < nVar; iVar++)
+      config->fields[fields_id[iVar]+1] = variable_names[iVar];
+
+    double Solution[nVar];
+
+    /*--- get the global indices of the local points ---*/
+
+    int npoints = geometry->GetnPointDomain();
+    hsize_t *local_idx;
+    local_idx = new hsize_t[npoints];
+    for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++)
+      local_idx[iPoint] = geometry->node[iPoint]->GetGlobalIndex();
+
+    double **tmp;
+    tmp = new double*[nVar];
+    for (iVar = 0; iVar < nVar; iVar++)
+      tmp[iVar] = new double[npoints];
+
+    hsize_t dims[] = { geometry->GetnPointDomain()};
+
+    /*--- read the data ---*/
+    for (iVar = 0; iVar < nVar; iVar++)
+      {
+	dset_id = H5Dopen (ele_id, config->fields[iVar+1].c_str(),H5P_DEFAULT);
+	space_id = H5Dget_space (dset_id);
+	mid1 = H5Screate_simple(1, dims, NULL);
+  
+	ret = H5Sselect_elements (space_id, H5S_SELECT_SET, npoints, local_idx);
+
+	ret = H5Dread (dset_id, H5T_NATIVE_DOUBLE, mid1,space_id, H5P_DEFAULT, tmp[iVar]); 
+
+      }
+
+    /*--- set the nodes ---*/
+    for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++)
+      {
+	for (iVar = 0; iVar < nVar; iVar++)
+	  Solution[iVar] = tmp[iVar][iPoint];
+	node[iPoint] = new CBaselineVariable(Solution, nVar, config);
+      }
+
+    for (iVar = 0; iVar < nVar; iVar++)
+      delete [] tmp[iVar];
+    delete [] tmp;
+    delete [] local_idx;
+
+    H5Gclose(ele_id);
+    H5Fclose(file_id);
+
+#endif
+  } else {
+  
+    getline (restart_file, text_line);
+    stringstream ss(text_line);
+    while (ss >> Tag) {
     config->fields.push_back(Tag);
     if (ss.peek() == ',') ss.ignore();
   }
   
-  /*--- Set the number of variables, one per field in the
-   restart file (without including the PointID) ---*/
+    /*--- Set the number of variables, one per field in the
+      restart file (without including the PointID) ---*/
   
-  nVar = config->fields.size() - 1;
-  su2double *Solution = new su2double[nVar];
+    nVar = config->fields.size() - 1;
+    su2double *Solution = new su2double[nVar];
   
-  /*--- Read all lines in the restart file ---*/
+    /*--- Read all lines in the restart file ---*/
   
-  iPoint_Global = 0;
-  while (getline (restart_file, text_line)) {
+    iPoint_Global = 0;
+    while (getline (restart_file, text_line)) {
     istringstream point_line(text_line);
     
     /*--- Retrieve local index. If this node from the restart file lives
-     on a different processor, the value of iPoint_Local will be -1.
-     Otherwise, the local index for this node on the current processor
-     will be returned and used to instantiate the vars. ---*/
+      on a different processor, the value of iPoint_Local will be -1.
+      Otherwise, the local index for this node on the current processor
+      will be returned and used to instantiate the vars. ---*/
     
     iPoint_Local = Global2Local[iPoint_Global];
     if (iPoint_Local >= 0) {
       
-      /*--- The PointID is not stored --*/
-      point_line >> index;
+    /*--- The PointID is not stored --*/
+    point_line >> index;
       
-      /*--- Store the solution (starting with node coordinates) --*/
-      for (iField = 0; iField < nVar; iField++)
-        point_line >> Solution[iField];
+    /*--- Store the solution (starting with node coordinates) --*/
+    for (iField = 0; iField < nVar; iField++)
+      point_line >> Solution[iField];
       
-      node[iPoint_Local] = new CBaselineVariable(Solution, nVar, config);
-    }
+    node[iPoint_Local] = new CBaselineVariable(Solution, nVar, config);
+  }
     iPoint_Global++;
   }
   
-  /*--- Instantiate the variable class with an arbitrary solution
-   at any halo/periodic nodes. The initial solution can be arbitrary,
-   because a send/recv is performed immediately in the solver. ---*/
+    /*--- Instantiate the variable class with an arbitrary solution
+      at any halo/periodic nodes. The initial solution can be arbitrary,
+      because a send/recv is performed immediately in the solver. ---*/
   
-  for (iVar = 0; iVar < nVar; iVar++)
-    Solution[iVar] = 0.0;
+    for (iVar = 0; iVar < nVar; iVar++)
+      Solution[iVar] = 0.0;
   
-  for (iPoint = geometry->GetnPointDomain(); iPoint < geometry->GetnPoint(); iPoint++)
-    node[iPoint] = new CBaselineVariable(Solution, nVar, config);
+    for (iPoint = geometry->GetnPointDomain(); iPoint < geometry->GetnPoint(); iPoint++)
+      node[iPoint] = new CBaselineVariable(Solution, nVar, config);
   
-  /*--- Close the restart file ---*/
+    /*--- Close the restart file ---*/
   
-  restart_file.close();
+    restart_file.close();
   
-  /*--- Free memory needed for the transformation ---*/
+    /*--- Free memory needed for the transformation ---*/
   
-  delete [] Global2Local;
-  delete [] Solution;
-  
+    delete [] Global2Local;
+    delete [] Solution;
+  }
   /*--- MPI solution ---*/
   
   Set_MPI_Solution(geometry, config);

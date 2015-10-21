@@ -3954,6 +3954,194 @@ void COutput::SetRestart(CConfig *config, CGeometry *geometry, CSolver **solver,
   restart_file.close();
   
 }
+#ifdef HAVE_HDF5
+void COutput::SetRestart_HDF5(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned short val_iZone) {
+
+  /*--- Local variables ---*/
+  
+  unsigned short Kind_Solver  = config->GetKind_Solver();
+  unsigned short iVar, iDim, nDim = geometry->GetnDim();
+  unsigned long iPoint, iExtIter = config->GetExtIter();
+  bool grid_movement = config->GetGrid_Movement();
+
+  string filename;
+  
+  vector<string> variable_names;
+  ostringstream sstm;
+
+  /*--- Retrieve filename from config ---*/
+  
+  if (config->GetAdjoint()) {
+    filename = config->GetRestart_AdjFileName();
+    filename = config->GetObjFunc_Extension(filename);
+  } else {
+    filename = config->GetRestart_FlowFileName();
+  }
+  
+  /*--- Unsteady problems require an iteration number to be appended. ---*/
+  
+  if (config->GetUnsteady_Simulation() == TIME_SPECTRAL) {
+    filename = config->GetUnsteady_FileName(filename, int(val_iZone));
+  } else if (config->GetWrt_Unsteady()) {
+    filename = config->GetUnsteady_FileName(filename, int(iExtIter));
+  }
+
+  
+  // --- Mesh coordinates are always written to the restart first ---
+  variable_names.push_back("x");
+  variable_names.push_back("y");
+  if (nDim == 3) 
+    variable_names.push_back("z");
+  
+  for (iVar = 0; iVar < nVar_Consv; iVar++){
+    sstm.clear(); sstm.str("");
+    sstm << "Conservative_" << iVar+1 ;
+    variable_names.push_back(sstm.str());
+  }
+
+  if (!config->GetLow_MemoryOutput()) {
+    
+    if (config->GetWrt_Limiters()) {
+      for (iVar = 0; iVar < nVar_Consv; iVar++) {
+	sstm.clear(); sstm.str("");
+	sstm << "Limiter_" << iVar+1 ;
+	variable_names.push_back(sstm.str());
+      }
+    }
+    if (config->GetWrt_Residuals()) {
+      for (iVar = 0; iVar < nVar_Consv; iVar++) {
+	sstm.clear(); sstm.str("");
+	sstm << "Residual_" << iVar+1 ;
+	variable_names.push_back(sstm.str());
+      }
+    }
+    
+    /*--- Mesh velocities for dynamic mesh cases ---*/
+    
+    if (grid_movement) {
+      variable_names.push_back("Grid_Velx");
+      variable_names.push_back("Grid_Vely");
+      if (nDim == 3)
+	variable_names.push_back("Grid_Velz");
+    }
+    
+    /*--- Solver specific output variables ---*/
+    
+    if (config->GetKind_Regime() == FREESURFACE) {
+      variable_names.push_back("Density");
+    }
+    
+    if ((Kind_Solver == EULER) || (Kind_Solver == NAVIER_STOKES) || (Kind_Solver == RANS)) {
+      variable_names.push_back("Pressure");
+      variable_names.push_back("Temperature");
+      variable_names.push_back("Pressure_Coefficient");
+      variable_names.push_back("Mach");
+    }
+    
+    if ((Kind_Solver == NAVIER_STOKES) || (Kind_Solver == RANS)) {
+      variable_names.push_back("Laminar_Viscosity");
+      variable_names.push_back("Skin_Friction_Coefficient");
+      variable_names.push_back("Heat_Flux");
+      variable_names.push_back("Y_Plus");
+    }
+    
+    if (Kind_Solver == RANS) {
+      variable_names.push_back("Eddy_Viscosity");
+    }
+    
+    if (config->GetWrt_SharpEdges()) {
+      if ((Kind_Solver == EULER) || (Kind_Solver == NAVIER_STOKES) || (Kind_Solver == RANS)) {
+	variable_names.push_back("Sharp_Edge_Dist");
+      }
+    }
+    
+    if ((Kind_Solver == TNE2_EULER) || (Kind_Solver == TNE2_NAVIER_STOKES)) {
+      variable_names.push_back("Mach");
+      variable_names.push_back("Pressure");
+      variable_names.push_back("Temperature");
+      variable_names.push_back("Temperature_ve");
+    }
+    
+    if (Kind_Solver == TNE2_NAVIER_STOKES) {
+      for (unsigned short iSpecies = 0; iSpecies < config->GetnSpecies(); iSpecies++)
+	{
+	  sstm.clear(); sstm.str("");
+	  sstm << "DiffusionCoeff_" << iSpecies ;
+	  variable_names.push_back(sstm.str());
+	}
+
+      variable_names.push_back("Laminar_Viscosity");
+      variable_names.push_back("ThermConductivity");
+      variable_names.push_back("ThermConductivity_ve");
+    }
+    
+    if (Kind_Solver == POISSON_EQUATION) {
+      for (iDim = 0; iDim < geometry->GetnDim(); iDim++){
+	sstm.clear(); sstm.str("");
+	sstm << "poissonField_" << iDim+1;
+	variable_names.push_back(sstm.str());
+      }
+    }
+    
+    if ((Kind_Solver == ADJ_EULER              ) ||
+        (Kind_Solver == ADJ_NAVIER_STOKES      ) ||
+        (Kind_Solver == ADJ_RANS               ) ||
+        (Kind_Solver == ADJ_TNE2_EULER         ) ||
+        (Kind_Solver == ADJ_TNE2_NAVIER_STOKES )   ) {
+      variable_names.push_back("Surface_Sensitivity");
+      variable_names.push_back("Solution_Sensor");
+    }
+    
+    if (Kind_Solver == LINEAR_ELASTICITY) {
+      variable_names.push_back("Von_Mises_Stress");
+      variable_names.push_back("Flow_Pressure");
+    }
+    
+    if (config->GetExtraOutput()) {
+      string *headings = NULL;
+      //if (Kind_Solver == RANS) {
+      headings = solver[TURB_SOL]->OutputHeadingNames;
+      //}
+      
+      for (iVar = 0; iVar < nVar_Extra; iVar++) {
+        if (headings == NULL) {
+	  sstm.clear(); sstm.str("");
+	  sstm << "ExtraOutput_" << iVar+1;
+	  variable_names.push_back(sstm.str());
+	  variable_names.push_back("");
+        } else{
+	  variable_names.push_back(headings[iVar]);
+        }
+      }
+    }
+  }
+  
+  assert(variable_names.size() == nVar_Total+nDim);
+
+  hid_t file_id = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+  hid_t ele_id = H5Gcreate (file_id, "PointData", H5P_DEFAULT ,H5P_DEFAULT ,H5P_DEFAULT );
+
+  hsize_t dims[1] = {geometry->GetGlobal_nPointDomain()};
+  const size_t attr_size = 1;
+  
+
+  for (iDim = 0; iDim < nDim; iDim++) {
+    hid_t dset_id = H5LTmake_dataset(ele_id,variable_names[iDim].c_str(),1,dims,H5T_NATIVE_DOUBLE,Coords[iDim]);
+    int tmp = iDim;
+    H5LTset_attribute_int(ele_id, variable_names[iDim].c_str(), "id", &tmp, attr_size);
+  }
+
+  for (iVar = 0; iVar < nVar_Total; iVar++) {
+    H5LTmake_dataset(ele_id,variable_names[iVar+nDim].c_str(),1,dims,H5T_NATIVE_DOUBLE,Data[iVar]);
+    int tmp = iVar + nDim;
+    H5LTset_attribute_int(ele_id, variable_names[iVar+nDim].c_str(), "id", &tmp, attr_size);
+  }
+  
+  H5Gclose(ele_id);
+  H5Fclose(file_id);
+  
+}
+#endif
 
 void COutput::DeallocateCoordinates(CConfig *config, CGeometry *geometry) {
   
@@ -6549,9 +6737,15 @@ void COutput::SetResult_Files(CSolver ****solver_container, CGeometry ***geometr
     if (rank == MASTER_NODE) {
       
       /*--- Write a native restart file ---*/
-      
-      if (rank == MASTER_NODE) cout << "Writing SU2 native restart file." << endl;
-      SetRestart(config[iZone], geometry[iZone][MESH_0], solver_container[iZone][MESH_0] , iZone);
+
+      if (config[iZone]->GetHDF5_IO()) {
+	  if (rank == MASTER_NODE) cout << "Writing SU2 HDF5 restart file." << endl;
+	  SetRestart_HDF5(config[iZone], geometry[iZone][MESH_0], solver_container[iZone][MESH_0] , iZone);
+	}
+      else {
+	if (rank == MASTER_NODE) cout << "Writing SU2 native restart file." << endl;
+	SetRestart(config[iZone], geometry[iZone][MESH_0], solver_container[iZone][MESH_0] , iZone);
+      }
       
       if (Wrt_Vol) {
         

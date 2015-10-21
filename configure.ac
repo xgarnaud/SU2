@@ -236,6 +236,7 @@ AC_SUBST([CGNS_LD])
 
 # check for lib
 HDF5lib=libhdf5.a
+HDF5lib_hl=libhdf5_hl.a
 HDF5header=hdf5.h
 have_HDF5="no"
 
@@ -267,7 +268,8 @@ if test "$have_HDF5" != "no"
 then
 AM_CONDITIONAL(BUILD_HDF5,true)
 HDF5_CXX="-DHAVE_HDF5 -I"$with_HDF5_include""
-HDF5_LD="$with_HDF5_lib"/$HDF5lib
+HDF5_LD="$with_HDF5_lib"/$HDF5lib_hl
+HDF5_LD+=" $with_HDF5_lib"/$HDF5lib
 else
 AM_CONDITIONAL(BUILD_HDF5,false)
 HDF5_CXX=
