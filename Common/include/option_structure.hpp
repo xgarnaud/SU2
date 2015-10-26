@@ -788,11 +788,13 @@ static const map<string, RIEMANN_TYPE> Riemann_Map = CCreateMap<string, RIEMANN_
  */
 enum INLET_TYPE {
   TOTAL_CONDITIONS = 1,		/*!< \brief User specifies total pressure, total temperature, and flow direction. */
-  MASS_FLOW = 2           /*!< \brief User specifies density and velocity (mass flow). */
+  MASS_FLOW = 2,           /*!< \brief User specifies density and velocity (mass flow). */
+  ABSOLUTE_TOTAL_CONDITIONS = 3,		/*!< \brief User specifies total pressure, totaltemperature, and flow direction. */
 };
 static const map<string, INLET_TYPE> Inlet_Map = CCreateMap<string, INLET_TYPE>
 ("TOTAL_CONDITIONS", TOTAL_CONDITIONS)
-("MASS_FLOW", MASS_FLOW);
+("MASS_FLOW", MASS_FLOW)
+  ("ABSOLUTE_TOTAL_CONDITIONS",ABSOLUTE_TOTAL_CONDITIONS);
 
 /*!
  * \brief types of geometric entities based on VTK nomenclature

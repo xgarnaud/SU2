@@ -7424,8 +7424,8 @@ void CEulerSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container,
                             CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker) {
   unsigned short iDim;
   unsigned long iVertex, iPoint, Point_Normal;
-  su2double P_Total, T_Total, Velocity[3], Velocity2, H_Total, Temperature, Riemann,
-  Pressure, Density, Energy, *Flow_Dir, Mach2, SoundSpeed2, SoundSpeed_Total2, Vel_Mag,
+  su2double P_Total, T_Total, Velocity[3], AbsoluteVelocity[3], Velocity2, H_Total, Temperature, Riemann,
+  Pressure, Density, Energy, *Flow_Dir, Mach2, SoundSpeed2, SoundSpeed, SoundSpeed_Total2, Vel_Mag,
   alpha, aa, bb, cc, dd, Area, UnitNormal[3];
   su2double *V_inlet, *V_domain;
 
@@ -7443,6 +7443,7 @@ void CEulerSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container,
   bool tkeNeeded = (((config->GetKind_Solver() == RANS )|| (config->GetKind_Solver() == DISC_ADJ_RANS)) &&
                     (config->GetKind_Turb_Model() == SST));
   su2double *Normal = new su2double[nDim];
+  su2double Omega[3] = {0,0,0}, RelativeVelocity[3] = {0,0,0}, RelativePosition[3] = {0,0,0};
 
   /*--- Loop over all the vertices on this boundary marker ---*/
   
@@ -7571,6 +7572,128 @@ void CEulerSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container,
             
             for (iDim = 0; iDim < nDim; iDim++)
               Velocity[iDim] = Vel_Mag*Flow_Dir[iDim];
+
+            /*--- Static temperature from the speed of sound relation ---*/
+            
+            Temperature = SoundSpeed2/(Gamma*Gas_Constant);
+
+            /*--- Static pressure using isentropic relation at a point ---*/
+            
+            Pressure = P_Total*pow((Temperature/T_Total), Gamma/Gamma_Minus_One);
+            
+            /*--- Density at the inlet from the gas law ---*/
+            
+            Density = Pressure/(Gas_Constant*Temperature);
+
+            /*--- Using pressure, density, & velocity, compute the energy ---*/
+            
+            Energy = Pressure/(Density*Gamma_Minus_One) + 0.5*Velocity2;
+            if (tkeNeeded) Energy += GetTke_Inf();
+
+            /*--- Primitive variables, using the derived quantities ---*/
+            
+            V_inlet[0] = Temperature;
+            for (iDim = 0; iDim < nDim; iDim++)
+              V_inlet[iDim+1] = Velocity[iDim];
+            V_inlet[nDim+1] = Pressure;
+            V_inlet[nDim+2] = Density;
+            V_inlet[nDim+3] = Energy + Pressure/Density;
+
+            break;
+
+          case ABSOLUTE_TOTAL_CONDITIONS:
+
+            /*--- Retrieve the specified total conditions for this inlet. ---*/
+	    RelativeVelocity[0]   = config->GetTranslation_Rate_X(ZONE_0)/config->GetOmega_Ref();
+	    RelativeVelocity[1]   = config->GetTranslation_Rate_Y(ZONE_0)/config->GetOmega_Ref();
+	    RelativeVelocity[2]   = config->GetTranslation_Rate_Z(ZONE_0)/config->GetOmega_Ref();
+	    Omega[0]              = config->GetRotation_Rate_X(ZONE_0)/config->GetVelocity_Ref();
+	    Omega[1]              = config->GetRotation_Rate_Y(ZONE_0)/config->GetVelocity_Ref();
+	    Omega[2]              = config->GetRotation_Rate_Z(ZONE_0)/config->GetVelocity_Ref();
+
+	    RelativePosition[0]   = geometry->node[iPoint]->GetCoord(0);
+	    RelativePosition[1]   = geometry->node[iPoint]->GetCoord(1);
+	    RelativePosition[2]   = geometry->node[iPoint]->GetCoord(2);
+	    
+	    RelativeVelocity[0] += (Omega[1]*RelativePosition[2] - Omega[2]*RelativePosition[1]);
+	    RelativeVelocity[1] += (Omega[2]*RelativePosition[0] - Omega[0]*RelativePosition[2]);
+	    RelativeVelocity[2] += (Omega[0]*RelativePosition[1] - Omega[1]*RelativePosition[0]);
+	    
+            if (gravity) P_Total = config->GetInlet_Ptotal(Marker_Tag) - geometry->node[iPoint]->GetCoord(nDim-1)*STANDART_GRAVITY;
+            else P_Total  = config->GetInlet_Ptotal(Marker_Tag);
+            T_Total  = config->GetInlet_Ttotal(Marker_Tag);
+            Flow_Dir = config->GetInlet_FlowDir(Marker_Tag);
+
+            /*--- Non-dim. the inputs if necessary. ---*/
+            
+            P_Total /= config->GetPressure_Ref();
+            T_Total /= config->GetTemperature_Ref();
+
+            /*--- Store primitives and set some variables for clarity. ---*/
+            
+            Density = V_domain[nDim+2];
+            Velocity2 = 0.0;
+            for (iDim = 0; iDim < nDim; iDim++) {
+              Velocity[iDim] = V_domain[iDim+1];
+	      AbsoluteVelocity[iDim] = V_domain[iDim+1] + RelativeVelocity[iDim];
+              Velocity2 += AbsoluteVelocity[iDim]*AbsoluteVelocity[iDim];
+            }
+            Energy      = V_domain[nDim+3] - V_domain[nDim+1]/V_domain[nDim+2];
+            Pressure    = V_domain[nDim+1];
+            H_Total     = (Gamma*Gas_Constant/Gamma_Minus_One)*T_Total;
+            SoundSpeed2 = Gamma*Pressure/Density;
+
+            /*--- Compute the acoustic Riemann invariant that is extrapolated
+             from the domain interior. ---*/
+            
+            Riemann   = 2.0*sqrt(SoundSpeed2)/Gamma_Minus_One;
+            for (iDim = 0; iDim < nDim; iDim++)
+              Riemann += AbsoluteVelocity[iDim]*UnitNormal[iDim];
+
+            /*--- Total speed of sound ---*/
+            
+            SoundSpeed_Total2 = Gamma_Minus_One*(H_Total - (Energy + Pressure/Density)+0.5*Velocity2) + SoundSpeed2;
+
+            /*--- Dot product of normal and flow direction. This should
+             be negative due to outward facing boundary normal convention. ---*/
+            
+            alpha = 0.0;
+            for (iDim = 0; iDim < nDim; iDim++)
+              alpha += UnitNormal[iDim]*Flow_Dir[iDim];
+
+            /*--- Coefficients in the quadratic equation for the velocity ---*/
+            
+            aa =  1.0 + 0.5*Gamma_Minus_One*alpha*alpha;
+            bb = -1.0*Gamma_Minus_One*alpha*Riemann;
+            cc =  0.5*Gamma_Minus_One*Riemann*Riemann
+	      -2.0*SoundSpeed_Total2/Gamma_Minus_One;
+
+            /*--- Solve quadratic equation for velocity magnitude. Value must
+             be positive, so the choice of root is clear. ---*/
+            
+            dd = bb*bb - 4.0*aa*cc;
+            dd = sqrt(max(0.0, dd));
+            Vel_Mag   = (-bb + dd)/(2.0*aa);
+            Vel_Mag   = max(0.0, Vel_Mag);
+            Velocity2 = Vel_Mag*Vel_Mag;
+
+            /*--- Compute speed of sound from total speed of sound eqn. ---*/
+            SoundSpeed2 = SoundSpeed_Total2 - 0.5*Gamma_Minus_One*Velocity2;
+
+            /*--- Mach squared (cut between 0-1), use to adapt velocity ---*/
+            
+            Mach2 = Velocity2/SoundSpeed2;
+            Mach2 = min(1.0, Mach2);
+            Velocity2   = Mach2*SoundSpeed2;
+            Vel_Mag     = sqrt(Velocity2);
+            SoundSpeed2 = SoundSpeed_Total2 - 0.5*Gamma_Minus_One*Velocity2;
+
+            /*--- Compute new velocity vector at the inlet ---*/
+            
+            for (iDim = 0; iDim < nDim; iDim++) {
+              AbsoluteVelocity[iDim] = Vel_Mag*Flow_Dir[iDim];
+	      Velocity[iDim] = AbsoluteVelocity[iDim] - RelativeVelocity[iDim];
+	    }
 
             /*--- Static temperature from the speed of sound relation ---*/
             
